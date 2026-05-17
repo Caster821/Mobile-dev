@@ -1,7 +1,7 @@
 name: Build Android APK
 on:
   push:
-    branches: [ main, master ] # Déclenche le build quand vous poussez sur main ou master
+    branches: [ main, master, Final-Pennywise ] # Déclenche le build quand vous poussez sur main ou master
 
 jobs:
   build:
