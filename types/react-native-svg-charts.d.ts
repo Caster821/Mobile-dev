@@ -1,4 +1,4 @@
-declare module 'react-native-svg-charts' {
+declare module 'react-native-gifted-charts' {
   import { ComponentType, ReactNode } from 'react';
   import { StyleProp, ViewStyle } from 'react-native';
 

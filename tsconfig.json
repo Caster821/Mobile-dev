@@ -14,5 +14,10 @@
     "types/**/*.d.ts",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "convex",
+    "node_modules/convex",
+    "node_modules/@convex-dev"
   ]
 }

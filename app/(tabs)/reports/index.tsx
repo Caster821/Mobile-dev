@@ -5,7 +5,7 @@ import { useApp, useTheme } from '../../../context/AppContext';
 import { getTransactions, getCategories } from '../../../database/database';
 import { formatCurrency } from '../../../utils/currency';
 
-import { PieChart, LineChart, Grid, YAxis, XAxis } from 'react-native-svg-charts';
+import { PieChart, LineChart, Grid, YAxis, XAxis } from 'react-native-gifted-charts';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { GlassCard } from '../../../components/ui/GlassCard';

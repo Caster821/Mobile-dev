@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# convex (unused)
+convex/
+
 # Expo
 .expo/
 dist/
