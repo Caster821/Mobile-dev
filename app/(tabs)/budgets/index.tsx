@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { useBudgets } from '../../../hooks/useBudgets';
 import { useCategories } from '../../../hooks/useCategories';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BudgetProgress } from '../../../components/ui/BudgetProgress';
 import { useApp, useTheme } from '../../../context/AppContext';
@@ -14,7 +14,7 @@ export default function BudgetsScreen() {
   const month = currentDate.getMonth() + 1;
   const year = currentDate.getFullYear();
 
-  const { budgets, isLoading } = useBudgets(month, year);
+  const { budgets, isLoading, refresh, deleteBudget } = useBudgets(month, year);
   const { categories } = useCategories('expense');
   const { currency } = useApp();
   const colors = useTheme();
@@ -26,6 +26,34 @@ export default function BudgetsScreen() {
   };
 
   const monthLabel = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
+
+  const handleDeleteBudget = (budgetId: string, categoryName: string) => {
+    Alert.alert(
+      'Delete Budget',
+      `Remove the budget for ${categoryName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteBudget(budgetId);
+            } catch (e) {
+              console.error(e);
+              Alert.alert('Error', 'Failed to delete budget');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const totalSummary = useMemo(() => {
     const totalBudgeted = budgets.reduce((sum, b) => sum + b.amount, 0);
@@ -71,14 +99,16 @@ export default function BudgetsScreen() {
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
           const category = categories.find((c: any) => c._id === item.categoryId);
+          const categoryName = category?.name || 'Unknown';
           return (
             <BudgetProgress 
               spent={item.spent}
               limit={item.amount}
-              categoryName={category?.name || 'Unknown'}
+              categoryName={categoryName}
               categoryIcon={category?.icon || 'help'}
               categoryColor={category?.color || colors.primary}
               currencyCode={currency.code}
+              onDelete={item._id ? () => handleDeleteBudget(item._id, categoryName) : undefined}
             />
           );
         }}
@@ -86,28 +116,16 @@ export default function BudgetsScreen() {
           <View style={styles.emptyContainer}>
             <Ionicons name="receipt-outline" size={64} color={colors.border} />
             <Text style={[styles.emptyText, { color: colors.subtext }]}>No budgets set for this month</Text>
-            <TouchableOpacity 
-              style={[styles.createBtn, { backgroundColor: colors.primary }]}
-              onPress={() => router.push('/(tabs)/budgets/create')}
-            >
-              <Text style={styles.createBtnText}>Create Budget</Text>
-            </TouchableOpacity>
           </View>
         }
       />
       
       <TouchableOpacity 
-        style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={() => {
-          try {
-            router.push('/(tabs)/budgets/create');
-          } catch (e) {
-            console.error('Navigation error:', e);
-          }
-        }}
-      >
-        <Ionicons name="add" size={30} color="white" />
-      </TouchableOpacity>
+              style={[styles.createBtn, { backgroundColor: colors.primary }]}
+              onPress={() => router.push(`/(tabs)/budgets/create?month=${month}&year=${year}`)}
+            >
+              <Text style={styles.createBtnText}>Add Budget</Text>
+            </TouchableOpacity>
     </View>
   );
 }
@@ -125,7 +143,7 @@ const styles = StyleSheet.create({
   listContent: { padding: 16, paddingBottom: 100 },
   emptyContainer: { alignItems: 'center', marginTop: 60 },
   emptyText: { marginTop: 16, fontSize: 16, textAlign: 'center' },
-  createBtn: { marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  createBtn: { marginTop: 12, paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   createBtnText: { color: 'white', fontWeight: 'bold' },
   fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5 },
 });

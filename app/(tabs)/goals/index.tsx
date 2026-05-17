@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { useGoals } from '../../../hooks/useGoals';
 import { useApp, useTheme } from '../../../context/AppContext';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { GoalProgressCircle } from '../../../components/ui/GoalProgressCircle';
 import { commonShadow } from '../../../utils/theme';
@@ -10,7 +10,7 @@ import { formatCurrency } from '../../../utils/currency';
 import { SavingsGoal } from '../../../types';
 
 export default function GoalsScreen() {
-  const { goals, isLoading, refresh, addGoal, contributeToGoal } = useGoals();
+  const { goals, isLoading, refresh, contributeToGoal, deleteGoal } = useGoals();
   const { currency } = useApp();
   const colors = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
@@ -27,6 +27,34 @@ export default function GoalsScreen() {
     if (diffDays < 0) return { text: 'Overdue', color: colors.danger };
     if (diffDays === 0) return { text: 'Due today', color: colors.warning };
     return { text: `${diffDays} days left`, color: colors.subtext };
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
+
+  const handleDeleteGoal = (goal: SavingsGoal) => {
+    Alert.alert(
+      'Delete Goal',
+      `Remove "${goal.name}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteGoal(goal._id);
+            } catch (e) {
+              console.error(e);
+              Alert.alert('Error', 'Failed to delete goal');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleContribute = (goal: SavingsGoal) => {
@@ -116,14 +144,22 @@ export default function GoalsScreen() {
                     <Text style={[styles.deadline, { color: deadline.color }]}>{deadline.text}</Text>
                   )}
                 </View>
-                {!isCompleted && (
-                  <Pressable 
-                    style={({ pressed }) => [styles.contributeBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}
-                    onPress={() => handleContribute(item)}
+                <View style={styles.goalActions}>
+                  {!isCompleted && (
+                    <Pressable 
+                      style={({ pressed }) => [styles.contributeBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}
+                      onPress={() => handleContribute(item)}
+                    >
+                      <Ionicons name="add" size={24} color="white" />
+                    </Pressable>
+                  )}
+                  <Pressable
+                    style={({ pressed }) => [styles.deleteBtn, { opacity: pressed ? 0.8 : 1 }]}
+                    onPress={() => handleDeleteGoal(item)}
                   >
-                    <Ionicons name="add" size={24} color="white" />
+                    <Ionicons name="trash-outline" size={22} color={colors.danger} />
                   </Pressable>
-                )}
+                </View>
                 {isCompleted && (
                   <View style={[styles.completedBadge, { backgroundColor: colors.success }]}>
                     <Ionicons name="checkmark" size={24} color="white" />
@@ -136,17 +172,11 @@ export default function GoalsScreen() {
       />
       
       <TouchableOpacity 
-        style={[styles.fab, { backgroundColor: colors.primary }]}
-        onPress={() => {
-          try {
-            router.push('/(tabs)/goals/create');
-          } catch (e) {
-            console.error('Navigation error:', e);
-          }
-        }}
-      >
-        <Ionicons name="add" size={30} color="white" />
-      </TouchableOpacity>
+              style={[styles.createBtn, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/(tabs)/goals/create')}
+            >
+              <Text style={styles.createBtnText}>Add a Goal</Text>
+            </TouchableOpacity>
 
       {/* Contribution Modal */}
       <Modal
@@ -226,11 +256,13 @@ const styles = StyleSheet.create({
   amount: { fontSize: 14, marginTop: 4 },
   deadline: { fontSize: 12, marginTop: 4 },
   completed: { fontSize: 12, marginTop: 4, fontWeight: 'bold' },
+  goalActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   contributeBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  deleteBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   completedBadge: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
   emptyState: { alignItems: 'center', marginTop: 80 },
   emptyText: { marginTop: 16, fontSize: 16 },
-  createBtn: { marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  createBtn: { marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, alignItems: 'center'},
   createBtnText: { color: 'white', fontWeight: 'bold' },
   fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5 },
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },

@@ -21,7 +21,7 @@ const COLORS = [
 ];
 
 export default function CategoriesScreen() {
-  const { categories, isLoading, refresh } = useCategories();
+  const { categories, isLoading, refresh, deleteCategory } = useCategories();
   const { user } = useAuth();
   const colors = useTheme();
   const [modalVisible, setModalVisible] = useState(false);
@@ -37,6 +37,32 @@ export default function CategoriesScreen() {
     { title: 'INCOME', data: incomeCategories },
   ].filter(section => section.data.length > 0);
 
+  const handleDeleteCategory = (category: { _id: string; name: string; isDefault?: boolean }) => {
+    if (category.isDefault) {
+      Alert.alert('Cannot Delete', 'Default categories cannot be deleted.');
+      return;
+    }
+    Alert.alert(
+      'Delete Category',
+      `Remove "${category.name}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCategory(category._id);
+            } catch (e) {
+              console.error(e);
+              Alert.alert('Error', 'Failed to delete category');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleAddCategory = async () => {
     if (!newCategory.name) {
       Alert.alert('Error', 'Please enter a category name');
@@ -44,7 +70,7 @@ export default function CategoriesScreen() {
     }
     try {
       await insertCategory({
-        user_id: user?.id,
+        userId: user?.id,
         name: newCategory.name,
         icon: newCategory.icon,
         color: newCategory.color,
@@ -80,6 +106,11 @@ export default function CategoriesScreen() {
                 <Text style={[styles.name, { color: colors.text }]}>{item.name}</Text>
               </View>
             </View>
+            {!item.isDefault && (
+              <TouchableOpacity onPress={() => handleDeleteCategory(item)} style={styles.deleteIcon}>
+                <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              </TouchableOpacity>
+            )}
           </View>
         )}
         renderSectionHeader={({ section: { title } }) => (
@@ -170,7 +201,8 @@ export default function CategoriesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 16, marginHorizontal: 16, marginTop: 12, borderRadius: 12, elevation: 1 },
+  card: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', padding: 16, marginHorizontal: 16, marginTop: 12, borderRadius: 12, elevation: 1 },
+  deleteIcon: { padding: 8 },
   cardLeft: { flexDirection: 'row', alignItems: 'center' },
   textContainer: { marginLeft: 16 },
   name: { fontSize: 16, fontWeight: 'bold', color: '#333' },

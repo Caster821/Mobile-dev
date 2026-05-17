@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { useTransactions } from '../../hooks/useTransactions';
 import { useAccounts } from '../../hooks/useAccounts';
-import { getDashboardData } from '../../database/database';
+import { getDashboardData, getNetWorth } from '../../database/database';
 import { useApp, useTheme } from '../../context/AppContext';
 import { formatCurrency } from '../../utils/currency';
 import { GlassCard } from '../../components/ui/GlassCard';
@@ -25,6 +25,7 @@ export default function DashboardScreen() {
   
   const [summary, setSummary] = useState({ income: 0, expense: 0 });
   const [loadingSummary, setLoadingSummary] = useState(true);
+  const [netWorth, setNetWorth] = useState(0);
 
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -35,8 +36,12 @@ export default function DashboardScreen() {
       if (!user) return;
       setLoadingSummary(true);
       try {
-        const data = await getDashboardData(user.id, month, year);
+        const [data, balance] = await Promise.all([
+          getDashboardData(user.id, month, year),
+          getNetWorth(user.id),
+        ]);
         setSummary(data);
+        setNetWorth(balance);
       } catch (e) {
         console.error(e);
       } finally {
@@ -44,14 +49,7 @@ export default function DashboardScreen() {
       }
     };
     fetchSummary();
-  }, [user, month, year, rawTransactions]);
-
-  const netWorth = useMemo(() => {
-    const initial = accounts.reduce((sum, acc) => sum + Number(acc.startingBalance), 0);
-    // Add transaction history balance if needed, but here we just sum accounts for simplicity
-    // Or we could use the getNetWorth function from database.ts
-    return initial;
-  }, [accounts]);
+  }, [user, month, year, rawTransactions, accounts]);
 
   const onRefresh = async () => {
     await Promise.all([refreshTx(), refreshAcc()]);
@@ -194,8 +192,8 @@ export default function DashboardScreen() {
           </View>
           {rawTransactions.slice(0, 5).map((tx) => (
             <TouchableOpacity 
-              key={tx.id} 
-              onPress={() => router.push(`/transactions/${tx.id}`)}
+              key={tx._id} 
+              onPress={() => router.push(`/transactions/${tx._id}`)}
               style={[styles.txItem, { backgroundColor: colors.card }]}
             >
               <View style={[styles.txIcon, { backgroundColor: tx.categories?.color || colors.surface }]}>
@@ -217,23 +215,6 @@ export default function DashboardScreen() {
         
         <View style={{ height: 100 }} />
       </ScrollView>
-
-      <AnimatedFAB
-        actions={[
-          {
-            icon: 'add-circle',
-            label: 'Transaction',
-            onPress: () => {
-              try {
-                router.push('/(tabs)/transactions/add');
-              } catch (e) {
-                console.error('Navigation error:', e);
-              }
-            },
-            color: '#48BB78',
-          },
-        ]}
-      />
     </View>
   );
 }

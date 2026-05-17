@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getGoals, insertGoal, contributeToGoal } from '../database/database';
+import { getGoals, insertGoal, contributeToGoal, deleteGoal } from '../database/database';
 import { SavingsGoal } from '../types';
 
 export const useGoals = () => {
@@ -38,11 +38,18 @@ export const useGoals = () => {
     return res;
   };
 
+  const removeGoal = async (id: string) => {
+    if (!user) return;
+    await deleteGoal(id, user.id);
+    await refresh();
+  };
+
   return {
     goals,
     isLoading,
     refresh,
     addGoal,
     contributeToGoal: contribute,
+    deleteGoal: removeGoal,
   };
 };

@@ -131,6 +131,15 @@ export const getCategories = async (userId: string, type?: 'expense' | 'income')
   return (data || []).map(mapCategoryFromDb);
 };
 
+export const deleteCategory = async (id: string, userId: string) => {
+  const { error } = await supabase
+    .from('categories')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+  if (error) throw error;
+};
+
 export const insertCategory = async (category: any) => {
   const payload = {
     user_id: category.userId || category.user_id,
@@ -204,14 +213,14 @@ const mapTransactionFromDb = (data: any): Transaction => ({
 export const getTransactions = async (userId: string): Promise<any[]> => {
   const { data, error } = await supabase
     .from('transactions')
-    .select('*')
+    .select('*, categories(*)')
     .eq('user_id', userId)
     .eq('is_deleted', false)
     .order('date', { ascending: false });
   if (error) throw error;
   return (data || []).map(t => ({
     ...mapTransactionFromDb(t),
-    categories: t.categories,
+    categories: t.categories ? mapCategoryFromDb(t.categories) : null,
     accounts: t.accounts,
   }));
 };
@@ -323,6 +332,15 @@ export const insertBudget = async (b: any) => {
   return mapBudgetFromDb(data[0]);
 };
 
+export const deleteBudget = async (id: string, userId: string) => {
+  const { error } = await supabase
+    .from('budgets')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+  if (error) throw error;
+};
+
 // SAVINGS GOALS CRUD
 const mapGoalFromDb = (data: any): SavingsGoal => ({
   _id: data.id,
@@ -345,6 +363,15 @@ export const getGoals = async (userId: string): Promise<SavingsGoal[]> => {
   return (data || []).map(mapGoalFromDb);
 };
 
+
+export const deleteGoal = async (id: string, userId: string) => {
+  const { error } = await supabase
+    .from('savings_goals')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+  if (error) throw error;
+};
 
 export const insertGoal = async (g: any) => {
   const payload = {
@@ -449,6 +476,7 @@ export const getBudgetStatus = async (userId: string, month: number, year: numbe
       .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
     
     return {
+      _id: b._id,
       categoryId: b.categoryId,
       amount: b.amount,
       spent,

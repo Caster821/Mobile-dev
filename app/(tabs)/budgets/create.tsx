@@ -1,15 +1,24 @@
 import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { BudgetForm } from '../../../components/forms/BudgetForm';
 import { insertBudget } from '../../../database/database';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 
+const parseRouteParam = (value: string | string[] | undefined, fallback: number) => {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const parsed = parseInt(raw ?? '', 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+};
+
 export default function CreateBudgetScreen() {
+  const params = useLocalSearchParams<{ month?: string | string[]; year?: string | string[] }>();
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
+  const month = parseRouteParam(params.month, currentMonth);
+  const year = parseRouteParam(params.year, currentYear);
   const { user } = useAuth();
   const { showToast } = useToast();
 
@@ -19,8 +28,8 @@ export default function CreateBudgetScreen() {
         userId: user?.id,
         categoryId: data.categoryId,
         amount: data.amount,
-        month: data.month,
-        year: data.year,
+        month,
+        year,
       });
       showToast('Budget created ✓', 'success');
       router.back();
@@ -34,8 +43,8 @@ export default function CreateBudgetScreen() {
     <View style={styles.container}>
       <BudgetForm 
         onSubmit={handleSubmit}
-        month={currentMonth}
-        year={currentYear}
+        month={month}
+        year={year}
       />
     </View>
   );

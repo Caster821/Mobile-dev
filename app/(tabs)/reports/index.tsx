@@ -42,8 +42,8 @@ export default function ReportsScreen() {
   // Spending by Category
   const spendingByCat = categories.map(cat => {
     const total = transactions
-      .filter(tx => tx.category_id === cat.id && tx.type === 'expense')
-      .reduce((sum, tx) => sum + tx.amount, 0);
+      .filter(tx => tx.categoryId === cat._id && tx.type === 'expense')
+      .reduce((sum, tx) => sum + Number(tx.amount), 0);
     return { ...cat, total };
   }).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
 
@@ -69,7 +69,7 @@ export default function ReportsScreen() {
         const txDate = new Date(tx.date);
         return txDate.getMonth() === month && txDate.getFullYear() === year && tx.type === 'expense';
       })
-      .reduce((sum, tx) => sum + tx.amount, 0);
+      .reduce((sum, tx) => sum + Number(tx.amount), 0);
 
     monthlyData.push(monthlyTotal);
     months.push(monthName);
@@ -139,7 +139,7 @@ export default function ReportsScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Categories</Text>
           {spendingByCat.slice(0, 3).map((cat, index) => (
-            <View key={cat.id} style={[styles.topCatItem, { backgroundColor: colors.surface }]}>
+            <View key={cat._id} style={[styles.topCatItem, { backgroundColor: colors.surface }]}>
               <View style={[styles.iconBox, { backgroundColor: cat.color + '20' }]}>
                 <Ionicons name={cat.icon as any} size={24} color={cat.color} />
               </View>

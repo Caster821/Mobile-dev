@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../context/AppContext';
 import { commonShadow } from '../../utils/theme';
 import { formatCurrency } from '../../utils/currency';
@@ -12,9 +13,10 @@ interface Props {
   categoryIcon: string;
   categoryColor: string;
   currencyCode: string;
+  onDelete?: () => void;
 }
 
-export const BudgetProgress = ({ spent, limit, categoryName, categoryIcon, categoryColor, currencyCode }: Props) => {
+export const BudgetProgress = ({ spent, limit, categoryName, categoryIcon, categoryColor, currencyCode, onDelete }: Props) => {
   const colors = useTheme();
   const percentage = (spent / limit) * 100;
   const isOverBudget = spent > limit;
@@ -33,9 +35,16 @@ export const BudgetProgress = ({ spent, limit, categoryName, categoryIcon, categ
           <CategoryIcon icon={categoryIcon as any} color={categoryColor} size={20} />
           <Text style={[styles.categoryName, { color: colors.text }]}>{categoryName}</Text>
         </View>
-        <Text style={[styles.amount, { color: colors.subtext }]}>
-          {formatCurrency(spent, currencyCode)} / {formatCurrency(limit, currencyCode)}
-        </Text>
+        <View style={styles.headerRight}>
+          <Text style={[styles.amount, { color: colors.subtext }]}>
+            {formatCurrency(spent, currencyCode)} / {formatCurrency(limit, currencyCode)}
+          </Text>
+          {onDelete && (
+            <TouchableOpacity onPress={onDelete} style={styles.deleteBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="trash-outline" size={18} color={colors.danger} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       
       <View style={[styles.progressBarBackground, { backgroundColor: colors.surface }]}>
@@ -80,9 +89,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 12,
   },
+  headerRight: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
   amount: {
     fontSize: 14,
     fontWeight: '500',
+  },
+  deleteBtn: {
+    padding: 2,
   },
   progressBarBackground: {
     height: 10,

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getCategories, seedDefaultCategories } from '../database/database';
+import { getCategories, seedDefaultCategories, deleteCategory } from '../database/database';
 import { Category } from '../types';
 
 export const useCategories = (type?: 'expense' | 'income') => {
@@ -27,9 +27,16 @@ export const useCategories = (type?: 'expense' | 'income') => {
     refresh();
   }, [refresh]);
 
+  const removeCategory = async (id: string) => {
+    if (!user) return;
+    await deleteCategory(id, user.id);
+    await refresh();
+  };
+
   return {
     categories,
     isLoading,
     refresh,
+    deleteCategory: removeCategory,
   };
 };

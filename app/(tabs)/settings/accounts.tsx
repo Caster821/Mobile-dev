@@ -19,13 +19,13 @@ export default function AccountsScreen() {
   const [startingBalance, setStartingBalance] = useState('');
 
   const calculateBalance = (acc: any) => {
-    const accTxs = rawTransactions?.filter((t: any) => t.account_id === acc.id && !t.is_deleted) || [];
+    const accTxs = rawTransactions?.filter((t: any) => t.accountId === acc._id && !t.isDeleted) || [];
     const flow = accTxs.reduce((sum: number, t: any) => {
       if (t.type === 'income') return sum + Number(t.amount);
       if (t.type === 'expense') return sum - Number(t.amount);
       return sum;
     }, 0);
-    return Number(acc.starting_balance || 0) + flow;
+    return Number(acc.startingBalance || 0) + flow;
   };
 
   const handleCreate = async () => {

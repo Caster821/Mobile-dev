@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, SectionList, Pressable, Animated, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTransactions } from '../../../hooks/useTransactions';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
+import { useCategories } from '../../../hooks/useCategories';
 import { Ionicons } from '@expo/vector-icons';
 import { TransactionCard } from '../../../components/ui/TransactionCard';
 import { useApp, useTheme } from '../../../context/AppContext';
@@ -13,8 +14,15 @@ export default function TransactionsScreen() {
   const { currency } = useApp();
   const colors = useTheme();
   const { showToast } = useToast();
-  const { transactions, isLoading, deleteTransaction } = useTransactions();
+  const { transactions, isLoading, deleteTransaction, refresh } = useTransactions();
+  const { categories } = useCategories();
   const [filter, setFilter] = useState<'All' | 'Expense' | 'Income'>('All');
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh])
+  );
 
   const getFilteredData = () => {
     let raw = transactions;
@@ -107,11 +115,22 @@ export default function TransactionsScreen() {
       <SectionList
         sections={sections}
         keyExtractor={(item, index) => item._id || `transaction-${index}`}
-        renderItem={({ item }) => (
-          <Swipeable renderRightActions={(p, d) => renderRightActions(p, d, item._id)}>
-            <TransactionCard transaction={item} currencyCode={currency.code} />
-          </Swipeable>
-        )}
+        renderItem={({ item }) => {
+          const category = categories.find(
+            (c) => c._id === item.categoryId || c._id === item.categories?._id
+          ) || item.categories;
+          return (
+            <Swipeable renderRightActions={(p, d) => renderRightActions(p, d, item._id)}>
+              <TransactionCard
+                transaction={item}
+                categoryName={category?.name}
+                categoryIcon={category?.icon}
+                categoryColor={category?.color}
+                currencyCode={currency.code}
+              />
+            </Swipeable>
+          );
+        }}
         renderSectionHeader={({ section: { title } }) => (
           <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
             <Text style={[styles.sectionTitle, { color: colors.subtext }]}>{title}</Text>
