@@ -1,28 +1,35 @@
-import { useState, useEffect } from 'react';
-import { openDatabase } from '../database/database';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getCategories, seedDefaultCategories } from '../database/database';
+import { Category } from '../types';
 
 export const useCategories = (type?: 'expense' | 'income') => {
-  const [categories, setCategories] = useState<any[]>([]);
+  const { user } = useAuth();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      // Ensure defaults are seeded first time
+      await seedDefaultCategories(user.id);
+      const data = await getCategories(user.id, type);
+      setCategories(data);
+    } catch (e) {
+      console.error('Failed to load categories:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, type]);
 
   useEffect(() => {
-    loadCategories();
-  }, [type]);
+    refresh();
+  }, [refresh]);
 
-  const loadCategories = async () => {
-      try {
-          const db = await openDatabase();
-          let query = 'SELECT * FROM categories';
-          const params: any[] = [];
-          if (type) {
-              query += ' WHERE type = ?';
-              params.push(type);
-          }
-          const result = await db.getAllAsync(query, params);
-          setCategories(result);
-      } catch(e) {
-          console.error(e);
-      }
+  return {
+    categories,
+    isLoading,
+    refresh,
   };
-
-  return { categories };
 };

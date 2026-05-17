@@ -2,42 +2,29 @@ import React from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { TransactionForm } from '../../../components/forms/TransactionForm';
-import { insertTransaction } from '../../../database/database';
-import { Transaction } from '../../../types';
+import { useTransactions } from '../../../hooks/useTransactions';
 import { useToast } from '../../../context/ToastContext';
+import { useTheme } from '../../../context/AppContext';
 
 export default function AddTransactionScreen() {
   const { type } = useLocalSearchParams<{ type: 'expense' | 'income' | 'transfer' }>();
   const { showToast } = useToast();
+  const { addTransaction } = useTransactions();
+  const colors = useTheme();
 
-  const handleSubmit = async (data: Partial<Transaction>) => {
+  const handleSubmit = async (data: any) => {
     try {
-      const transaction: Transaction = {
-        id: Date.now().toString(),
-        amount: data.amount!,
-        type: data.type as any,
-        category_id: data.category_id || null,
-        account_id: data.account_id!,
-        date: data.date!,
-        note: data.note || null,
-        receipt_uri: null,
-        recurring_id: null,
-        tags: null,
-        is_deleted: 0,
-        created_at: Date.now(),
-      };
-
-      await insertTransaction(transaction);
+      await addTransaction(data);
       showToast('Transaction added ✓', 'success');
       router.back();
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Failed to save transaction');
+      Alert.alert('Error', 'Failed to save transaction to cloud');
     }
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <TransactionForm 
         defaultType={type || 'expense'} 
         onSubmit={handleSubmit} 
@@ -47,5 +34,5 @@ export default function AddTransactionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  container: { flex: 1 },
 });

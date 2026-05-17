@@ -1,45 +1,45 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Alert, Text } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Alert, Text, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { TransactionForm } from '../../../components/forms/TransactionForm';
-import { openDatabase, updateTransaction, deleteTransaction } from '../../../database/database';
-import { Transaction } from '../../../types';
+import { getTransaction, updateTransaction, deleteTransaction } from '../../../database/database';
+import { useAuth } from '../../../context/AuthContext';
+import { useTheme } from '../../../context/AppContext';
 
 export default function EditTransactionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [transaction, setTransaction] = useState<Transaction | null>(null);
+  const { user } = useAuth();
+  const colors = useTheme();
+  
+  const [transaction, setTransaction] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadTransaction();
-  }, [id]);
+    const fetchTransaction = async () => {
+      if (!user || !id) return;
+      try {
+        const data = await getTransaction(id, user.id);
+        setTransaction(data);
+      } catch (e) {
+        console.error(e);
+        Alert.alert('Error', 'Failed to fetch transaction details');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTransaction();
+  }, [id, user]);
 
-  const loadTransaction = async () => {
+  const handleSubmit = async (data: any) => {
     try {
-      const db = await openDatabase();
-      const res = await db.getAllAsync<Transaction>('SELECT * FROM transactions WHERE id = ?', [id]);
-      if (res.length > 0) setTransaction(res[0]);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleSubmit = async (data: Partial<Transaction>) => {
-    if (!transaction) return;
-    try {
-      const updated: Transaction = {
-        ...transaction,
-        amount: data.amount!,
-        type: data.type as any,
-        category_id: data.category_id || null,
-        account_id: data.account_id!,
-        note: data.note || null,
-      };
-
-      await updateTransaction(updated);
+      await updateTransaction({
+        id,
+        ...data
+      });
       router.back();
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Failed to update transaction');
+      Alert.alert('Error', 'Failed to update transaction on cloud');
     }
   };
 
@@ -47,25 +47,45 @@ export default function EditTransactionScreen() {
     Alert.alert('Delete Transaction', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: async () => {
+        if (!user || !id) return;
         try {
-          await deleteTransaction(id);
+          await deleteTransaction(id, user.id);
           router.back();
         } catch (e) {
           console.error(e);
-          Alert.alert('Error', 'Failed to delete transaction');
+          Alert.alert('Error', 'Failed to delete transaction from cloud');
         }
       }}
     ]);
   };
 
-  if (!transaction) {
-    return <View style={styles.container}><Text>Loading...</Text></View>;
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
   }
 
+  if (!transaction) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <Text style={{ color: colors.text }}>Transaction not found</Text>
+      </View>
+    );
+  }
+
+  // Map database categories shape to what the form expects if needed
+  const initialData = {
+    ...transaction,
+    categoryId: transaction.category_id,
+    accountId: transaction.account_id,
+  };
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <TransactionForm 
-        initialData={transaction}
+        initialData={initialData}
         onSubmit={handleSubmit}
         onDelete={handleDelete}
       />
@@ -74,5 +94,5 @@ export default function EditTransactionScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5', justifyContent: 'center' },
+  container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

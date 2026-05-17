@@ -3,13 +3,15 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Switch, TextInput, Alert
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp, useTheme } from '../../../context/AppContext';
+import { useAuth } from '../../../context/AuthContext';
 import { isBiometricEnabled, enableBiometricLock } from '../../../utils/secureStore';
 import { commonShadow } from '../../../utils/theme';
 import * as Sharing from 'expo-sharing';
 import { getTransactions } from '../../../database/database';
 
 export default function SettingsScreen() {
-  const { theme, setTheme, currencyCode, setCurrencyCode, colors } = useApp();
+  const { user, signOut } = useAuth();
+  const { theme, setTheme, currency, setCurrency, colors } = useApp();
   const themeColors = useTheme();
   const [biometric, setBiometric] = useState(false);
 
@@ -29,8 +31,9 @@ export default function SettingsScreen() {
   };
 
   const exportToCSV = async () => {
+    if (!user) return;
     try {
-      const transactions = await getTransactions();
+      const transactions = await getTransactions(user.id);
       let csv = 'ID,Date,Type,Amount,Category,Note\n';
       transactions.forEach(t => {
         csv += `${t.id},${new Date(t.date).toISOString()},${t.type},${t.amount},${t.categoryName || ''},"${t.note || ''}"\n`;
@@ -46,6 +49,17 @@ export default function SettingsScreen() {
       console.error(e);
       Alert.alert("Error", "Failed to export data.");
     }
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to logout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Logout", style: "destructive", onPress: () => signOut() }
+      ]
+    );
   };
 
   const SectionHeader = ({ title }: { title: string }) => (
@@ -82,6 +96,23 @@ export default function SettingsScreen() {
     <ScrollView style={[styles.container, { backgroundColor: themeColors.background }]}>
       
       <View style={styles.section}>
+        <SectionHeader title="Account" />
+        <View style={[styles.card, { backgroundColor: themeColors.card }, commonShadow]}>
+          <SettingRow
+            icon="person-circle"
+            title="Profile"
+            value={user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}
+          />
+          <SettingRow
+            icon="log-out"
+            title="Logout"
+            onPress={handleLogout}
+            last
+          />
+        </View>
+      </View>
+
+      <View style={styles.section}>
         <SectionHeader title="Preferences" />
         <View style={[styles.card, { backgroundColor: themeColors.card }, commonShadow]}>
           <SettingRow 
@@ -97,11 +128,11 @@ export default function SettingsScreen() {
           <SettingRow 
             icon="cash" 
             title="Currency" 
-            value={currencyCode} 
+            value={currency.code} 
             onPress={() => {
               const codes = ['USD', 'EUR', 'GBP', 'XOF', 'JPY'];
-              const next = codes[(codes.indexOf(currencyCode) + 1) % codes.length];
-              setCurrencyCode(next);
+              const next = codes[(codes.indexOf(currency.code) + 1) % codes.length];
+              setCurrency(next);
             }} 
           />
           <SettingRow 

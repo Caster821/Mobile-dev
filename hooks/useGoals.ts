@@ -1,29 +1,48 @@
-import { useState, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { getGoals } from '../database/database';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getGoals, insertGoal, contributeToGoal } from '../database/database';
 import { SavingsGoal } from '../types';
 
 export const useGoals = () => {
+  const { user } = useAuth();
   const [goals, setGoals] = useState<SavingsGoal[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadGoals();
-      return () => {};
-    }, [])
-  );
-
-  const loadGoals = async () => {
-    setLoading(true);
+  const refresh = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
     try {
-      const fetched = await getGoals();
-      setGoals(fetched);
+      const data = await getGoals(user.id);
+      setGoals(data);
     } catch (e) {
-      console.error(e);
+      console.error('Failed to load goals:', e);
+    } finally {
+      setIsLoading(false);
     }
-    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const addGoal = async (g: any) => {
+    if (!user) return;
+    const res = await insertGoal({ ...g, userId: user.id });
+    await refresh();
+    return res;
   };
 
-  return { goals, loading, refresh: loadGoals };
+  const contribute = async (goal: SavingsGoal, amount: number) => {
+    const res = await contributeToGoal(goal, amount);
+    await refresh();
+    return res;
+  };
+
+  return {
+    goals,
+    isLoading,
+    refresh,
+    addGoal,
+    contributeToGoal: contribute,
+  };
 };

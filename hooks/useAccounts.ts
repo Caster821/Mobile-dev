@@ -1,28 +1,43 @@
-import { useState, useEffect } from 'react';
-import { openDatabase } from '../database/database';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getAccounts, insertAccount, seedDefaultAccounts } from '../database/database';
+import { Account } from '../types';
 
 export const useAccounts = () => {
-  const [accounts, setAccounts] = useState<any[]>([]);
+  const { user } = useAuth();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
+    try {
+      // Ensure defaults are seeded first time
+      await seedDefaultAccounts(user.id);
+      const data = await getAccounts(user.id);
+      setAccounts(data);
+    } catch (e) {
+      console.error('Failed to load accounts:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    loadAccounts();
-  }, []);
+    refresh();
+  }, [refresh]);
 
-  const loadAccounts = async () => {
-      try {
-          const db = await openDatabase();
-          const result = await db.getAllAsync('SELECT * FROM accounts');
-          if (result.length === 0) {
-              // Create default account if none exists
-              await db.runAsync("INSERT INTO accounts (id, name, type, starting_balance, currency, created_at) VALUES ('acc-1', 'Main Checking', 'checking', 0, 'USD', ?)", [Date.now()]);
-              setAccounts([{ id: 'acc-1', name: 'Main Checking', type: 'checking' }]);
-          } else {
-              setAccounts(result);
-          }
-      } catch(e) {
-          console.error(e);
-      }
+  const addAccount = async (account: Partial<Account>) => {
+    if (!user) return;
+    const res = await insertAccount({ ...account, userId: user.id });
+    await refresh();
+    return res;
   };
 
-  return { accounts };
+  return {
+    accounts,
+    isLoading,
+    refresh,
+    addAccount,
+  };
 };

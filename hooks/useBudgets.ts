@@ -1,39 +1,40 @@
-import { useState, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
-import { getBudgets, getTransactions } from '../database/database';
-import { Budget, Transaction } from '../types';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { getBudgetStatus, insertBudget } from '../database/database';
 
 export const useBudgets = (month: number, year: number) => {
-  const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const [budgets, setBudgets] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-      return () => {};
-    }, [month, year])
-  );
-
-  const loadData = async () => {
-    setLoading(true);
+  const refresh = useCallback(async () => {
+    if (!user) return;
+    setIsLoading(true);
     try {
-      const fetchedBudgets = await getBudgets(month, year);
-      const fetchedTransactions = await getTransactions();
-      
-      // Filter transactions for this month
-      const currentTransactions = fetchedTransactions.filter(t => {
-        const d = new Date(t.date);
-        return d.getMonth() + 1 === month && d.getFullYear() === year && t.type === 'expense';
-      });
-
-      setBudgets(fetchedBudgets);
-      setTransactions(currentTransactions);
+      const data = await getBudgetStatus(user.id, month, year);
+      setBudgets(data);
     } catch (e) {
-      console.error(e);
+      console.error('Failed to load budgets:', e);
+    } finally {
+      setIsLoading(false);
     }
-    setLoading(false);
+  }, [user, month, year]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const addBudget = async (b: any) => {
+    if (!user) return;
+    const res = await insertBudget({ ...b, userId: user.id });
+    await refresh();
+    return res;
   };
 
-  return { budgets, transactions, loading, refresh: loadData };
+  return {
+    budgets,
+    isLoading,
+    refresh,
+    addBudget,
+  };
 };

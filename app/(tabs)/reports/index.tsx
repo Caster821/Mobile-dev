@@ -1,170 +1,182 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { PieChart } from '../../../components/charts/PieChart';
-import { LineChart } from '../../../components/charts/LineChart';
-import { getTransactions, getCategories } from '../../../database/database';
-import { Transaction, Category } from '../../../types';
+import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { useAuth } from '../../../context/AuthContext';
 import { useApp, useTheme } from '../../../context/AppContext';
+import { getTransactions, getCategories } from '../../../database/database';
 import { formatCurrency } from '../../../utils/currency';
-import { commonShadow } from '../../../utils/theme';
+// @ts-ignore - react-native-svg-charts lacks type definitions
+import { PieChart, LineChart, Grid, YAxis, XAxis } from 'react-native-svg-charts';
+import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { GlassCard } from '../../../components/ui/GlassCard';
+
+const { width } = Dimensions.get('window');
 
 export default function ReportsScreen() {
+  const { user } = useAuth();
+  const { currency, colors } = useApp();
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pieData, setPieData] = useState<any[]>([]);
-  const [lineLabels, setLineLabels] = useState<string[]>([]);
-  const [lineIncome, setLineIncome] = useState<number[]>([]);
-  const [lineExpense, setLineExpense] = useState<number[]>([]);
-  const [topCategories, setTopCategories] = useState<any[]>([]);
-  const { currencyCode } = useApp();
-  const colors = useTheme();
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-      return () => {};
-    }, [])
-  );
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const transactions = await getTransactions();
-      const categories = await getCategories('expense');
-      
-      const catMap = new Map<string, Category>();
-      categories.forEach(c => catMap.set(c.id, c));
-
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-
-      // Spending by category this month
-      const expenseMap: Record<string, number> = {};
-      let totalSpentThisMonth = 0;
-      transactions.forEach(t => {
-        if (t.type === 'expense' && t.is_deleted === 0) {
-          const d = new Date(t.date);
-          if (d.getMonth() === currentMonth && d.getFullYear() === currentYear && t.category_id) {
-            expenseMap[t.category_id] = (expenseMap[t.category_id] || 0) + t.amount;
-            totalSpentThisMonth += t.amount;
-          }
-        }
-      });
-
-      const pie = Object.keys(expenseMap).map(catId => {
-        const cat = catMap.get(catId);
-        const amount = expenseMap[catId];
-        return {
-          name: cat?.name || 'Unknown',
-          population: amount,
-          color: cat?.color || '#ccc',
-          legendFontColor: colors.text,
-          legendFontSize: 12,
-          percentage: (amount / totalSpentThisMonth) * 100
-        };
-      }).sort((a, b) => b.population - a.population);
-      
-      setPieData(pie);
-      setTopCategories(pie.slice(0, 3));
-
-      // Last 6 months trends
-      const labels: string[] = [];
-      const incData: number[] = [0, 0, 0, 0, 0, 0];
-      const expData: number[] = [0, 0, 0, 0, 0, 0];
-
-      for (let i = 5; i >= 0; i--) {
-        const d = new Date();
-        d.setMonth(d.getMonth() - i);
-        labels.push(d.toLocaleString('default', { month: 'short' }));
-      }
-
-      transactions.forEach(t => {
-        if (t.is_deleted === 1) return;
-        const d = new Date(t.date);
-        const monthDiff = (currentYear - d.getFullYear()) * 12 + (currentMonth - d.getMonth());
-        if (monthDiff >= 0 && monthDiff < 6) {
-          const index = 5 - monthDiff;
-          if (t.type === 'income') incData[index] += t.amount;
-          if (t.type === 'expense') expData[index] += t.amount;
-        }
-      });
-
-      setLineLabels(labels);
-      setLineIncome(incData);
-      setLineExpense(expData);
-
+      const txs = await getTransactions(user.id);
+      const cats = await getCategories(user.id, 'expense');
+      setTransactions(txs);
+      setCategories(cats);
     } catch (e) {
       console.error(e);
     }
     setLoading(false);
-  };
+  }, [user]);
 
-  if (loading) return <View style={[styles.container, { backgroundColor: colors.background }]} />;
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
+
+  // Spending by Category
+  const spendingByCat = categories.map(cat => {
+    const total = transactions
+      .filter(tx => tx.category_id === cat.id && tx.type === 'expense')
+      .reduce((sum, tx) => sum + tx.amount, 0);
+    return { ...cat, total };
+  }).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
+
+  const pieData = spendingByCat.map((item, index) => ({
+    value: item.total,
+    svg: { fill: item.color },
+    key: `pie-${index}`,
+  }));
+
+  // Monthly Trend (last 6 months)
+  const now = new Date();
+  const monthlyData: number[] = [];
+  const months: string[] = [];
+
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const month = date.getMonth();
+    const year = date.getFullYear();
+    const monthName = date.toLocaleString('default', { month: 'short' });
+
+    const monthlyTotal = transactions
+      .filter(tx => {
+        const txDate = new Date(tx.date);
+        return txDate.getMonth() === month && txDate.getFullYear() === year && tx.type === 'expense';
+      })
+      .reduce((sum, tx) => sum + tx.amount, 0);
+
+    monthlyData.push(monthlyTotal);
+    months.push(monthName);
+  }
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.content}>
-      <View style={[styles.card, { backgroundColor: colors.card }, commonShadow]}>
-        <Text style={[styles.title, { color: colors.text }]}>Spending by Category</Text>
-        {pieData.length > 0 ? (
-          <>
-            <PieChart data={pieData} />
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
+        <Text style={styles.headerTitle}>Spending Reports</Text>
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <GlassCard style={styles.summaryCard}>
+          <Text style={[styles.cardTitle, { color: colors.text }]}>Total Spending</Text>
+          <Text style={[styles.totalAmount, { color: colors.danger }]}>
+            {formatCurrency(spendingByCat.reduce((s, c) => s + c.total, 0), currency.code)}
+          </Text>
+        </GlassCard>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Spending by Category</Text>
+          <View style={styles.chartRow}>
+            <PieChart style={{ height: 200, flex: 1 }} data={pieData} />
             <View style={styles.legend}>
-              {pieData.map((item, index) => (
-                <View key={index} style={styles.legendItem}>
-                  <View style={[styles.dot, { backgroundColor: item.color }]} />
-                  <Text style={[styles.legendText, { color: colors.text }]}>{item.name}</Text>
-                  <Text style={[styles.legendValue, { color: colors.subtext }]}>
-                    {formatCurrency(item.population, currencyCode)} ({item.percentage.toFixed(1)}%)
+              {spendingByCat.slice(0, 5).map((cat, i) => (
+                <View key={i} style={styles.legendItem}>
+                  <View style={[styles.dot, { backgroundColor: cat.color }]} />
+                  <Text style={[styles.legendText, { color: colors.subtext }]} numberOfLines={1}>
+                    {cat.name}
                   </Text>
                 </View>
               ))}
             </View>
-          </>
-        ) : (
-          <Text style={[styles.emptyText, { color: colors.subtext }]}>No expenses this month.</Text>
-        )}
-      </View>
+          </View>
+        </View>
 
-      <View style={[styles.card, { backgroundColor: colors.card }, commonShadow]}>
-        <Text style={[styles.title, { color: colors.text }]}>Income vs Expenses</Text>
-        <LineChart labels={lineLabels} incomeData={lineIncome} expenseData={lineExpense} />
-      </View>
-
-      <View style={[styles.card, { backgroundColor: colors.card }, commonShadow]}>
-        <Text style={[styles.title, { color: colors.text }]}>Top Categories</Text>
-        {topCategories.map((cat, i) => (
-          <View key={i} style={styles.topCatItem}>
-            <View style={styles.topCatHeader}>
-              <Text style={[styles.topCatName, { color: colors.text }]}>{cat.name}</Text>
-              <Text style={[styles.topCatAmount, { color: colors.text }]}>{formatCurrency(cat.population, currencyCode)}</Text>
-            </View>
-            <View style={[styles.barBg, { backgroundColor: colors.surface }]}>
-              <View style={[styles.barFill, { backgroundColor: cat.color, width: `${cat.percentage}%` }]} />
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Monthly Trend</Text>
+          <View style={{ height: 200, flexDirection: 'row', padding: 20 }}>
+            <YAxis
+              data={monthlyData}
+              contentInset={{ top: 20, bottom: 20 }}
+              svg={{ fill: colors.subtext, fontSize: 10 }}
+              numberOfTicks={5}
+                formatLabel={(value: number) => `${value / 1000}k`}
+            />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <LineChart
+                style={{ flex: 1 }}
+                data={monthlyData}
+                svg={{ stroke: colors.primary, strokeWidth: 3 }}
+                contentInset={{ top: 20, bottom: 20 }}
+              >
+                <Grid />
+              </LineChart>
+              <XAxis
+                style={{ marginHorizontal: -10 }}
+                data={monthlyData}
+                formatLabel={(value: number, index: number) => months[index]}
+                contentInset={{ left: 10, right: 10 }}
+                svg={{ fontSize: 10, fill: colors.subtext }}
+              />
             </View>
           </View>
-        ))}
-        {topCategories.length === 0 && <Text style={[styles.emptyText, { color: colors.subtext }]}>No data available</Text>}
-      </View>
-    </ScrollView>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Categories</Text>
+          {spendingByCat.slice(0, 3).map((cat, index) => (
+            <View key={cat.id} style={[styles.topCatItem, { backgroundColor: colors.surface }]}>
+              <View style={[styles.iconBox, { backgroundColor: cat.color + '20' }]}>
+                <Ionicons name={cat.icon as any} size={24} color={cat.color} />
+              </View>
+              <View style={styles.catInfo}>
+                <Text style={[styles.catName, { color: colors.text }]}>{cat.name}</Text>
+                <Text style={[styles.catCount, { color: colors.subtext }]}>{index + 1}st Rank</Text>
+              </View>
+              <Text style={[styles.catAmount, { color: colors.text }]}>
+                {formatCurrency(cat.total, currency.code)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: 16 },
-  card: { borderRadius: 16, padding: 20, marginBottom: 16 },
-  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 20 },
-  legend: { marginTop: 20, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 16 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-  legendText: { flex: 1, fontSize: 14 },
-  legendValue: { fontSize: 14 },
-  emptyText: { textAlign: 'center', marginVertical: 20 },
-  topCatItem: { marginBottom: 16 },
-  topCatHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  topCatName: { fontWeight: '600' },
-  topCatAmount: { fontWeight: 'bold' },
-  barBg: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 4 },
+  header: { padding: 16, paddingTop: 50, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
+  content: { flex: 1, padding: 16 },
+  summaryCard: { padding: 16, alignItems: 'center', marginBottom: 20 },
+  cardTitle: { fontSize: 14, marginBottom: 6 },
+  totalAmount: { fontSize: 28, fontWeight: 'bold' },
+  section: { marginBottom: 24 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
+  chartRow: { flexDirection: 'row', alignItems: 'center' },
+  legend: { flex: 1, marginLeft: 16 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  dot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+  legendText: { fontSize: 11 },
+  topCatItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 10 },
+  iconBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  catInfo: { flex: 1 },
+  catName: { fontSize: 14, fontWeight: 'bold' },
+  catCount: { fontSize: 11 },
+  catAmount: { fontSize: 14, fontWeight: 'bold' },
 });

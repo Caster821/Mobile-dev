@@ -1,68 +1,72 @@
 export interface Category {
-  id: string;
+  _id: string;
+  userId?: string;
   name: string;
   icon: string;
   color: string;
   type: 'expense' | 'income';
-  is_default: number;
+  isDefault: boolean;
 }
 
 export interface Account {
-  id: string;
+  _id: string;
+  userId: string;
   name: string;
   type: 'cash' | 'checking' | 'savings' | 'credit';
-  starting_balance: number;
+  startingBalance: number;
   currency: string;
-  created_at: number;
 }
 
 export interface Transaction {
-  id: string;
+  _id: string;
+  userId: string;
   amount: number;
   type: 'expense' | 'income' | 'transfer';
-  category_id: string | null;
-  account_id: string;
+  categoryId: string;
+  accountId: string;
   date: number;
-  note: string | null;
-  receipt_uri: string | null;
-  recurring_id: string | null;
-  tags: string | null;
-  is_deleted: number;
-  created_at: number;
+  note?: string;
+  receiptUri?: string;
+  recurringId?: string;
+  tags?: string[];
+  isDeleted: boolean;
+  updatedAt: number;
 }
 
 export interface Budget {
-  id: string;
-  category_id: string;
+  _id: string;
+  userId: string;
+  categoryId: string;
   amount: number;
   method: string;
   month: number;
   year: number;
-  rollover_previous: number;
-  remaining_carried_over: number;
+  rolloverPrevious: boolean;
+  remainingCarriedOver: number;
 }
 
 export interface SavingsGoal {
-  id: string;
+  _id: string;
+  userId: string;
   name: string;
-  target_amount: number;
-  current_amount: number;
-  deadline: number | null;
-  category_id: string | null;
+  targetAmount: number;
+  currentAmount: number;
+  deadline: string | null;
+  categoryId?: string;
   icon?: string;
   color?: string;
-  created_at: number;
 }
 
 export interface RecurringRule {
-  id: string;
+  _id: string;
+  userId: string;
   type: 'expense' | 'income';
   amount: number;
-  category_id: string;
-  account_id: string;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  categoryId: string;
+  accountId: string;
+  frequency: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
   interval: number;
-  start_date: number;
-  end_date: number | null;
-  last_generated: number | null;
+  startDate: number;
+  endDate?: number;
+  lastGenerated?: number;
 }

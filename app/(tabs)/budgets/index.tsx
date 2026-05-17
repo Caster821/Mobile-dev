@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable } from 'react-native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useBudgets } from '../../../hooks/useBudgets';
 import { useCategories } from '../../../hooks/useCategories';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BudgetProgress } from '../../../components/ui/BudgetProgress';
 import { useApp, useTheme } from '../../../context/AppContext';
@@ -14,16 +14,10 @@ export default function BudgetsScreen() {
   const month = currentDate.getMonth() + 1;
   const year = currentDate.getFullYear();
 
-  const { budgets, transactions, loading, refresh } = useBudgets(month, year);
+  const { budgets, isLoading } = useBudgets(month, year);
   const { categories } = useCategories('expense');
-  const { currencyCode } = useApp();
+  const { currency } = useApp();
   const colors = useTheme();
-
-  useFocusEffect(
-    useCallback(() => {
-      refresh();
-    }, [month, year])
-  );
 
   const changeMonth = (offset: number) => {
     const newDate = new Date(currentDate);
@@ -33,25 +27,18 @@ export default function BudgetsScreen() {
 
   const monthLabel = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
 
-  const summary = useMemo(() => {
+  const totalSummary = useMemo(() => {
     const totalBudgeted = budgets.reduce((sum, b) => sum + b.amount, 0);
-    const categorySpentMap: Record<string, number> = {};
-    transactions.forEach(t => {
-      if (t.category_id) {
-        categorySpentMap[t.category_id] = (categorySpentMap[t.category_id] || 0) + t.amount;
-      }
-    });
-    const totalSpent = Object.values(categorySpentMap).reduce((sum, val) => sum + val, 0);
-    return { totalBudgeted, totalSpent, categorySpentMap };
-  }, [budgets, transactions]);
+    const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
+    return { totalBudgeted, totalSpent };
+  }, [budgets]);
 
-  const remainingDays = useMemo(() => {
-    const lastDay = new Date(year, month, 0).getDate();
-    return lastDay - currentDate.getDate();
-  }, [currentDate]);
-
-  if (loading && budgets.length === 0) {
-    return <View style={[styles.container, { backgroundColor: colors.background }]} />;
+  if (isLoading && budgets.length === 0) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
   }
 
   return (
@@ -69,82 +56,76 @@ export default function BudgetsScreen() {
       <View style={[styles.summaryCard, { backgroundColor: colors.card }, commonShadow]}>
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryLabel, { color: colors.subtext }]}>Budgeted</Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(summary.totalBudgeted, currencyCode)}</Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(totalSummary.totalBudgeted, currency.code)}</Text>
         </View>
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
         <View style={styles.summaryItem}>
           <Text style={[styles.summaryLabel, { color: colors.subtext }]}>Spent</Text>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(summary.totalSpent, currencyCode)}</Text>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{formatCurrency(totalSummary.totalSpent, currency.code)}</Text>
         </View>
       </View>
 
       <FlatList
         data={budgets}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => item._id || item.id || `${item.categoryId}-${index}`}
+        contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
-          const category = categories.find(c => c.id === item.category_id);
-          const spent = summary.categorySpentMap[item.category_id] || 0;
+          const category = categories.find((c: any) => c._id === item.categoryId);
           return (
             <BudgetProgress 
-              spent={spent}
+              spent={item.spent}
               limit={item.amount}
               categoryName={category?.name || 'Unknown'}
               categoryIcon={category?.icon || 'help'}
-              categoryColor={category?.color || '#ccc'}
-              currencyCode={currencyCode}
+              categoryColor={category?.color || colors.primary}
+              currencyCode={currency.code}
             />
           );
         }}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="wallet-outline" size={64} color={colors.subtext} />
-            <Text style={[styles.emptyText, { color: colors.text }]}>No budgets set for this month</Text>
-            <Pressable style={[styles.ctaButton, { backgroundColor: colors.primary }]} onPress={() => router.push('/(tabs)/budgets/create')}>
-              <Text style={styles.ctaText}>Add Budget</Text>
-            </Pressable>
+          <View style={styles.emptyContainer}>
+            <Ionicons name="receipt-outline" size={64} color={colors.border} />
+            <Text style={[styles.emptyText, { color: colors.subtext }]}>No budgets set for this month</Text>
+            <TouchableOpacity 
+              style={[styles.createBtn, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/(tabs)/budgets/create')}
+            >
+              <Text style={styles.createBtnText}>Create Budget</Text>
+            </TouchableOpacity>
           </View>
         }
-        contentContainerStyle={styles.listContent}
       />
-
-      <Pressable 
-        style={({ pressed }) => [styles.fab, { backgroundColor: colors.primary, transform: [{ scale: pressed ? 0.95 : 1 }] }, commonShadow]}
-        onPress={() => router.push('/(tabs)/budgets/create')}
+      
+      <TouchableOpacity 
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        onPress={() => {
+          try {
+            router.push('/(tabs)/budgets/create');
+          } catch (e) {
+            console.error('Navigation error:', e);
+          }
+        }}
       >
-        <Ionicons name="add" size={32} color="white" />
-      </Pressable>
+        <Ionicons name="add" size={30} color="white" />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  monthSelector: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-  },
+  monthSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, marginTop: 40 },
+  arrowBtn: { padding: 8 },
   monthText: { fontSize: 18, fontWeight: 'bold' },
-  arrowBtn: { padding: 4 },
-  summaryCard: {
-    flexDirection: 'row',
-    margin: 16,
-    padding: 20,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
+  summaryCard: { flexDirection: 'row', margin: 16, padding: 20, borderRadius: 16, alignItems: 'center' },
   summaryItem: { flex: 1, alignItems: 'center' },
-  summaryLabel: { fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
+  summaryLabel: { fontSize: 12, marginBottom: 4 },
   summaryValue: { fontSize: 18, fontWeight: 'bold' },
-  divider: { width: 1, height: '100%', marginHorizontal: 10 },
-  listContent: { paddingBottom: 100 },
-  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
-  emptyText: { fontSize: 16, marginTop: 16, marginBottom: 20 },
-  ctaButton: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
-  ctaText: { color: 'white', fontWeight: 'bold' },
-  fab: { position: 'absolute', right: 24, bottom: 24, width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  divider: { width: 1, height: 40, marginHorizontal: 20 },
+  listContent: { padding: 16, paddingBottom: 100 },
+  emptyContainer: { alignItems: 'center', marginTop: 60 },
+  emptyText: { marginTop: 16, fontSize: 16, textAlign: 'center' },
+  createBtn: { marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  createBtnText: { color: 'white', fontWeight: 'bold' },
+  fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5 },
 });

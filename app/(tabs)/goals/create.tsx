@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { router } from 'expo-router';
-import { insertGoal } from '../../../database/database';
+import { useGoals } from '../../../hooks/useGoals';
 import { useApp } from '../../../context/AppContext';
 
 export default function CreateGoalScreen() {
   const [name, setName] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
-  const { currencySymbol } = useApp();
+  const { currency } = useApp();
+  const { addGoal } = useGoals();
 
   const handleSave = async () => {
     if (!name || isNaN(Number(targetAmount)) || Number(targetAmount) <= 0) {
@@ -16,14 +17,9 @@ export default function CreateGoalScreen() {
     }
 
     try {
-      await insertGoal({
-        id: Date.now().toString(),
+      await addGoal({
         name,
-        target_amount: Number(targetAmount),
-        current_amount: 0,
-        deadline: null,
-        category_id: null,
-        created_at: Date.now(),
+        targetAmount: Number(targetAmount),
       });
       router.back();
     } catch (e) {
@@ -42,7 +38,7 @@ export default function CreateGoalScreen() {
         placeholder="e.g. Vacation Fund" 
       />
 
-      <Text style={styles.label}>Target Amount ({currencySymbol})</Text>
+      <Text style={styles.label}>Target Amount ({currency.symbol})</Text>
       <TextInput 
         style={styles.input} 
         value={targetAmount} 
@@ -59,7 +55,7 @@ export default function CreateGoalScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f5f5f5' },
+  container: { flex: 1, padding: 16, backgroundColor: '#f5f5f5', paddingTop: 60 },
   label: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8, marginTop: 16 },
   input: { backgroundColor: 'white', borderWidth: 1, borderColor: '#ddd', padding: 12, borderRadius: 8, fontSize: 16 },
   saveBtn: { backgroundColor: '#2e7d32', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 32 },

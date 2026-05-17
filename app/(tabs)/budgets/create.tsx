@@ -3,29 +3,25 @@ import { View, StyleSheet, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { BudgetForm } from '../../../components/forms/BudgetForm';
 import { insertBudget } from '../../../database/database';
-import { Budget } from '../../../types';
+import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 
 export default function CreateBudgetScreen() {
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth() + 1;
   const currentYear = currentDate.getFullYear();
+  const { user } = useAuth();
   const { showToast } = useToast();
 
-  const handleSubmit = async (data: Partial<Budget>) => {
+  const handleSubmit = async (data: any) => {
     try {
-      const budget: Budget = {
-        id: Date.now().toString(),
-        category_id: data.category_id!,
-        amount: data.amount!,
-        method: data.method!,
-        month: data.month!,
-        year: data.year!,
-        rollover_previous: data.rollover_previous!,
-        remaining_carried_over: data.remaining_carried_over!,
-      };
-
-      await insertBudget(budget);
+      await insertBudget({
+        userId: user?.id,
+        categoryId: data.categoryId,
+        amount: data.amount,
+        month: data.month,
+        year: data.year,
+      });
       showToast('Budget created ✓', 'success');
       router.back();
     } catch (e) {

@@ -1,19 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SectionList, Pressable, Animated } from 'react-native';
+import { View, Text, StyleSheet, SectionList, Pressable, Animated, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTransactions } from '../../../hooks/useTransactions';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { TransactionCard } from '../../../components/ui/TransactionCard';
 import { useApp, useTheme } from '../../../context/AppContext';
+import { useToast } from '../../../context/ToastContext';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { deleteTransaction } from '../../../database/database';
 import { commonShadow } from '../../../utils/theme';
-import { TransactionSkeleton } from '../../../components/ui/Skeleton';
 
 export default function TransactionsScreen() {
-  const { transactions, loading, refresh } = useTransactions();
-  const { currencyCode } = useApp();
+  const { currency } = useApp();
   const colors = useTheme();
+  const { showToast } = useToast();
+  const { transactions, isLoading, deleteTransaction } = useTransactions();
   const [filter, setFilter] = useState<'All' | 'Expense' | 'Income'>('All');
 
   const getFilteredData = () => {
@@ -46,19 +46,24 @@ export default function TransactionsScreen() {
     { title: 'Older', data: filtered.older || [] },
   ].filter(section => section.data.length > 0);
 
-  const handleDelete = async (id: string) => {
-    await deleteTransaction(id);
-    refresh();
+  const handleDelete = async (txId: any) => {
+    try {
+      await deleteTransaction(txId);
+      showToast("Transaction deleted", "success");
+    } catch (e) {
+      console.error(e);
+      showToast("Failed to delete transaction", "error");
+    }
   };
 
-  const renderRightActions = (progress: any, dragX: any, id: string) => {
+  const renderRightActions = (progress: any, dragX: any, txId: any) => {
     const scale = dragX.interpolate({
       inputRange: [-80, 0],
       outputRange: [1, 0],
       extrapolate: 'clamp',
     });
     return (
-      <Pressable style={[styles.deleteAction, { backgroundColor: colors.danger }]} onPress={() => handleDelete(id)}>
+      <Pressable style={[styles.deleteAction, { backgroundColor: colors.danger }]} onPress={() => handleDelete(txId)}>
         <Animated.View style={{ transform: [{ scale }] }}>
           <Ionicons name="trash" size={24} color="white" />
         </Animated.View>
@@ -66,18 +71,32 @@ export default function TransactionsScreen() {
     );
   };
 
-  if (loading) {
-    return <View style={[styles.container, { backgroundColor: colors.background }]} />;
+  if (isLoading && sections.length === 0) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
+        <Text style={styles.headerTitle}>Transactions</Text>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => router.push('/transactions/add')}
+        >
+          <Ionicons name="add" size={20} color="white" />
+          <Text style={styles.addBtnText}>Add Transaction</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.filterBar}>
         {['All', 'Expense', 'Income'].map(f => (
-          <Pressable 
-            key={f} 
-            style={[styles.filterChip, filter === f && { backgroundColor: colors.primary }]}
+          <Pressable
+            key={f}
+            style={[styles.filterChip, filter === f ? { backgroundColor: colors.primary } : { backgroundColor: colors.surface }]}
             onPress={() => setFilter(f as any)}
           >
             <Text style={[styles.filterText, filter === f ? { color: 'white' } : { color: colors.subtext }]}>{f}</Text>
@@ -87,50 +106,89 @@ export default function TransactionsScreen() {
 
       <SectionList
         sections={sections}
-        keyExtractor={(item) => item.id}
-        renderSectionHeader={({ section: { title } }) => (
-          <Text style={[styles.sectionTitle, { color: colors.subtext }]}>{title.toUpperCase()}</Text>
-        )}
-        renderItem={({ item: t }) => (
-          <Swipeable renderRightActions={(p, d) => renderRightActions(p, d, t.id)}>
-            <Pressable onPress={() => router.push(`/(tabs)/transactions/${t.id}`)}>
-              <TransactionCard 
-                transaction={t}
-                categoryName={t.categoryName}
-                categoryIcon={t.categoryIcon}
-                categoryColor={t.categoryColor}
-                currencyCode={currencyCode}
-              />
-            </Pressable>
+        keyExtractor={(item, index) => item._id || `transaction-${index}`}
+        renderItem={({ item }) => (
+          <Swipeable renderRightActions={(p, d) => renderRightActions(p, d, item._id)}>
+            <TransactionCard transaction={item} currencyCode={currency.code} />
           </Swipeable>
         )}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={64} color={colors.subtext} />
-            <Text style={[styles.emptyText, { color: colors.text }]}>No transactions found</Text>
+        renderSectionHeader={({ section: { title } }) => (
+          <View style={[styles.sectionHeader, { backgroundColor: colors.background }]}>
+            <Text style={[styles.sectionTitle, { color: colors.subtext }]}>{title}</Text>
           </View>
-        }
-        contentContainerStyle={{ paddingBottom: 100 }}
+        )}
+        contentContainerStyle={styles.listContent}
+        stickySectionHeadersEnabled={false}
       />
-      
-      <Pressable 
-        style={({ pressed }) => [styles.fab, { backgroundColor: colors.primary, transform: [{ scale: pressed ? 0.95 : 1 }] }, commonShadow]}
-        onPress={() => router.push('/(tabs)/transactions/add')}
-      >
-        <Ionicons name="add" size={32} color="white" />
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  filterBar: { flexDirection: 'row', padding: 16, paddingBottom: 8 },
-  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#e0e0e0', marginRight: 8 },
-  filterText: { fontWeight: '600', fontSize: 14 },
-  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
-  emptyText: { fontSize: 18, marginTop: 16, fontWeight: '500' },
-  sectionTitle: { fontSize: 12, fontWeight: 'bold', marginHorizontal: 24, marginTop: 16, marginBottom: 4, letterSpacing: 1 },
-  deleteAction: { justifyContent: 'center', alignItems: 'flex-end', paddingRight: 24, marginVertical: 6, marginRight: 16, borderRadius: 16, flex: 1, marginLeft: -50, paddingLeft: 50 },
-  fab: { position: 'absolute', right: 24, bottom: 24, width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  container: {
+    flex: 1,
+  },
+  header: {
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexDirection: 'row',
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  addBtnText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  filterBar: {
+    flexDirection: 'row',
+    padding: 12,
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    ...commonShadow,
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  sectionHeader: {
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+  },
+  deleteAction: {
+    width: 70,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    marginVertical: 4,
+    marginRight: 8,
+  },
 });

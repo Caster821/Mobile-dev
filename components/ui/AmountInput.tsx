@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, Text } from 'react-native';
-import { useTheme } from '../../context/AppContext';
+import { useTheme } from '@/context/AppContext';
 
 interface Props {
   value: string;

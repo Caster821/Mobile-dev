@@ -1,16 +1,16 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput } from 'react-native';
-import { useFocusEffect } from 'expo-router';
-import { getAccounts, getTransactions, insertAccount } from '../../../database/database';
-import { Account, Transaction } from '../../../types';
-import { useApp } from '../../../context/AppContext';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, ActivityIndicator } from 'react-native';
+import { useAccounts } from '../../../hooks/useAccounts';
+import { useTransactions } from '../../../hooks/useTransactions';
+import { useApp, useTheme } from '../../../context/AppContext';
 import { Ionicons } from '@expo/vector-icons';
+import { formatCurrency } from '../../../utils/currency';
 
 export default function AccountsScreen() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { currencySymbol } = useApp();
+  const { accounts, isLoading: accLoading, addAccount } = useAccounts();
+  const { rawTransactions, isLoading: txLoading } = useTransactions();
+  const { currency } = useApp();
+  const colors = useTheme();
 
   // Create Form State
   const [showForm, setShowForm] = useState(false);
@@ -18,24 +18,14 @@ export default function AccountsScreen() {
   const [type, setType] = useState<'cash'|'checking'|'savings'|'credit'>('checking');
   const [startingBalance, setStartingBalance] = useState('');
 
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-      return () => {};
-    }, [])
-  );
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const accs = await getAccounts();
-      const txs = await getTransactions();
-      setAccounts(accs);
-      setTransactions(txs);
-    } catch (e) {
-      console.error(e);
-    }
-    setLoading(false);
+  const calculateBalance = (acc: any) => {
+    const accTxs = rawTransactions?.filter((t: any) => t.account_id === acc.id && !t.is_deleted) || [];
+    const flow = accTxs.reduce((sum: number, t: any) => {
+      if (t.type === 'income') return sum + Number(t.amount);
+      if (t.type === 'expense') return sum - Number(t.amount);
+      return sum;
+    }, 0);
+    return Number(acc.starting_balance || 0) + flow;
   };
 
   const handleCreate = async () => {
@@ -44,106 +34,118 @@ export default function AccountsScreen() {
       return;
     }
     try {
-      await insertAccount({
-        id: Date.now().toString(),
+      await addAccount({
         name,
         type,
-        starting_balance: Number(startingBalance),
-        currency: 'USD',
-        created_at: Date.now(),
+        startingBalance: Number(startingBalance),
+        currency: currency.code,
       });
       setShowForm(false);
       setName('');
       setStartingBalance('');
-      loadData();
     } catch (e) {
       console.error(e);
       Alert.alert('Error', 'Failed to create account.');
     }
   };
 
-  // Calculate actual balance: starting_balance + sum of income - sum of expenses
-  const calculateBalance = (acc: Account) => {
-    const accTxs = transactions.filter(t => t.account_id === acc.id && t.is_deleted === 0);
-    const flow = accTxs.reduce((sum, t) => {
-      if (t.type === 'income') return sum + t.amount;
-      if (t.type === 'expense') return sum - t.amount;
-      return sum;
-    }, 0);
-    return acc.starting_balance + flow;
-  };
-
-  if (loading) return <View style={styles.container}><Text>Loading...</Text></View>;
+  if (accLoading || txLoading) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {showForm ? (
-        <View style={styles.formCard}>
-          <Text style={styles.formTitle}>New Account</Text>
-          <TextInput style={styles.input} placeholder="Account Name (e.g., Bank of America)" value={name} onChangeText={setName} />
-          <TextInput style={styles.input} placeholder="Starting Balance (e.g., 1000)" value={startingBalance} onChangeText={setStartingBalance} keyboardType="decimal-pad" />
+        <View style={[styles.formCard, { backgroundColor: colors.card }]}>
+          <Text style={[styles.formTitle, { color: colors.text }]}>New Account</Text>
+          <TextInput 
+            style={[styles.input, { borderColor: colors.border, color: colors.text }]} 
+            placeholder="Account Name (e.g., Main Wallet)" 
+            placeholderTextColor={colors.subtext}
+            value={name} 
+            onChangeText={setName} 
+          />
+          <TextInput 
+            style={[styles.input, { borderColor: colors.border, color: colors.text }]} 
+            placeholder="Starting Balance" 
+            placeholderTextColor={colors.subtext}
+            value={startingBalance} 
+            onChangeText={setStartingBalance} 
+            keyboardType="decimal-pad" 
+          />
           
           <View style={styles.typeSelector}>
-            {['cash', 'checking', 'savings', 'credit'].map(t => (
-              <TouchableOpacity key={t} style={[styles.typeBtn, type === t && styles.typeBtnActive]} onPress={() => setType(t as any)}>
-                <Text style={[styles.typeText, type === t && styles.typeTextActive]}>{t.charAt(0).toUpperCase() + t.slice(1)}</Text>
+            {['cash', 'checking', 'savings', 'credit'].map((t: any) => (
+              <TouchableOpacity 
+                key={t} 
+                style={[styles.typeBtn, { backgroundColor: colors.surface }, type === t && { backgroundColor: colors.primary }]} 
+                onPress={() => setType(t as any)}
+              >
+                <Text style={[styles.typeText, { color: colors.text }, type === t && { color: 'white' }]}>
+                  {t.charAt(0).toUpperCase() + t.slice(1)}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
           
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowForm(false)}><Text style={styles.cancelBtnText}>Cancel</Text></TouchableOpacity>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleCreate}><Text style={styles.saveBtnText}>Save</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowForm(false)}>
+              <Text style={{ color: colors.danger }}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={handleCreate}>
+              <Text style={{ color: 'white', fontWeight: 'bold' }}>Save</Text>
+            </TouchableOpacity>
           </View>
         </View>
       ) : (
-        <>
-          <FlatList
-            data={accounts}
-            keyExtractor={item => item.id}
-            renderItem={({ item }) => {
-              const bal = calculateBalance(item);
-              return (
-                <View style={styles.accountCard}>
-                  <View>
-                    <Text style={styles.accountName}>{item.name}</Text>
-                    <Text style={styles.accountType}>{item.type.toUpperCase()}</Text>
-                  </View>
-                  <Text style={[styles.accountBalance, { color: bal < 0 ? '#ff4444' : '#2e7d32' }]}>
-                    {currencySymbol}{bal.toFixed(2)}
-                  </Text>
-                </View>
-              );
-            }}
-          />
-          <TouchableOpacity style={styles.fab} onPress={() => setShowForm(true)}>
-            <Ionicons name="add" size={24} color="white" />
-          </TouchableOpacity>
-        </>
+        <TouchableOpacity 
+          style={[styles.addCard, { borderColor: colors.primary }]} 
+          onPress={() => setShowForm(true)}
+        >
+          <Ionicons name="add-circle" size={24} color={colors.primary} />
+          <Text style={[styles.addText, { color: colors.primary }]}>Add Account</Text>
+        </TouchableOpacity>
       )}
+
+      <FlatList 
+        data={accounts}
+        keyExtractor={(item, index) => item._id || `account-${index}`}
+        renderItem={({ item }) => (
+          <View style={[styles.accountCard, { backgroundColor: colors.card }]}>
+            <View style={styles.cardHeader}>
+              <Text style={[styles.accountName, { color: colors.text }]}>{item.name}</Text>
+              <Text style={[styles.accountType, { color: colors.subtext }]}>{item.type.toUpperCase()}</Text>
+            </View>
+            <Text style={[styles.accountBalance, { color: colors.text }]}>
+              {formatCurrency(calculateBalance(item), currency.code)}
+            </Text>
+          </View>
+        )}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f5f5' },
-  accountCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', padding: 16, marginHorizontal: 16, marginTop: 16, borderRadius: 12, elevation: 2 },
-  accountName: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  accountType: { fontSize: 12, color: '#888', marginTop: 4 },
-  accountBalance: { fontSize: 18, fontWeight: 'bold' },
-  fab: { position: 'absolute', right: 20, bottom: 20, backgroundColor: '#2e7d32', width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 4 },
-  
-  formCard: { backgroundColor: 'white', margin: 16, padding: 16, borderRadius: 12, elevation: 2 },
+  container: { flex: 1, padding: 16, paddingTop: 40 },
+  addCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 1.5, borderRadius: 12, padding: 16, marginBottom: 16 },
+  addText: { marginLeft: 8, fontWeight: '600' },
+  formCard: { padding: 16, borderRadius: 12, marginBottom: 16 },
   formTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 16 },
-  input: { borderWidth: 1, borderColor: '#eee', padding: 12, borderRadius: 8, marginBottom: 12, fontSize: 16 },
-  typeSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
-  typeBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f0f0' },
-  typeBtnActive: { backgroundColor: '#2e7d32' },
-  typeText: { color: '#333' },
-  typeTextActive: { color: 'white' },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
-  cancelBtn: { padding: 12 },
-  cancelBtnText: { color: '#888', fontWeight: 'bold' },
-  saveBtn: { backgroundColor: '#2e7d32', padding: 12, borderRadius: 8, paddingHorizontal: 24 },
-  saveBtnText: { color: 'white', fontWeight: 'bold' },
+  input: { borderWidth: 1, borderRadius: 8, padding: 12, marginBottom: 12 },
+  typeSelector: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+  typeBtn: { flex: 1, padding: 8, borderRadius: 8, marginHorizontal: 4, alignItems: 'center' },
+  typeText: { fontSize: 12 },
+  actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 },
+  cancelBtn: { padding: 12, marginRight: 16 },
+  saveBtn: { padding: 12, borderRadius: 8, paddingHorizontal: 20 },
+  accountCard: { padding: 16, borderRadius: 12, marginBottom: 12 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  accountName: { fontSize: 16, fontWeight: 'bold' },
+  accountType: { fontSize: 12 },
+  accountBalance: { fontSize: 20, fontWeight: 'bold' }
 });

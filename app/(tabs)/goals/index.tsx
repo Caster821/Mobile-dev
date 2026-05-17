@@ -1,139 +1,248 @@
-import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Pressable, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { useGoals } from '../../../hooks/useGoals';
 import { useApp, useTheme } from '../../../context/AppContext';
-import { router, useFocusEffect } from 'expo-router';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { GoalProgressCircle } from '../../../components/ui/GoalProgressCircle';
 import { commonShadow } from '../../../utils/theme';
 import { formatCurrency } from '../../../utils/currency';
+import { SavingsGoal } from '../../../types';
 
 export default function GoalsScreen() {
-  const { goals, loading, refresh } = useGoals();
-  const { currencyCode } = useApp();
+  const { goals, isLoading, refresh, addGoal, contributeToGoal } = useGoals();
+  const { currency } = useApp();
   const colors = useTheme();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState<SavingsGoal | null>(null);
+  const [contributeAmount, setContributeAmount] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      refresh();
-    }, [])
-  );
-
-  const getDeadlineText = (deadline: number | null) => {
+  const getDeadlineText = (deadline?: string | null) => {
     if (!deadline) return null;
     const now = new Date();
     const target = new Date(deadline);
-    const diffTime = target.getTime() - now.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     
     if (diffDays < 0) return { text: 'Overdue', color: colors.danger };
     if (diffDays === 0) return { text: 'Due today', color: colors.warning };
     return { text: `${diffDays} days left`, color: colors.subtext };
   };
 
-  const handleContribute = (goalId: string) => {
-    Alert.prompt(
-      "Contribute to Goal",
-      "Enter amount to add to this goal:",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Contribute", 
-          onPress: (amount?: string) => {
-            // In a real app, this would create a transaction and update the goal
-            // For now, let's just show a toast-like alert
-            Alert.alert("Success", `Contributed ${amount} to goal!`);
-            refresh();
-          }
-        }
-      ],
-      "plain-text",
-      "",
-      "decimal-pad"
-    );
+  const handleContribute = (goal: SavingsGoal) => {
+    setSelectedGoal(goal);
+    setContributeAmount('');
+    setModalVisible(true);
   };
 
-  if (loading && goals.length === 0) {
-    return <View style={[styles.container, { backgroundColor: colors.background }]} />;
+  const handleSubmitContribution = async () => {
+    if (!selectedGoal) return;
+    
+    const amount = parseFloat(contributeAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid positive amount.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      await contributeToGoal(selectedGoal, amount);
+      setModalVisible(false);
+      setContributeAmount('');
+      Alert.alert('Success', `Added ${formatCurrency(amount, currency.code)} to ${selectedGoal.name}`);
+    } catch (error) {
+      console.error('Failed to contribute:', error);
+      Alert.alert('Error', 'Failed to add contribution. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading && goals.length === 0) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center' }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
   }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.primary }]}>
+        <Text style={styles.headerTitle}>Savings Goals</Text>
+      </View>
+
       <FlatList
         data={goals}
-        keyExtractor={item => item.id}
+        keyExtractor={(item, index) => item._id || `goal-${index}`}
         contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Ionicons name="flag-outline" size={64} color={colors.subtext} />
+            <Text style={[styles.emptyText, { color: colors.subtext }]}>No savings goals yet.</Text>
+            <TouchableOpacity 
+              style={[styles.createBtn, { backgroundColor: colors.primary }]}
+              onPress={() => router.push('/(tabs)/goals/create')}
+            >
+              <Text style={styles.createBtnText}>Create Your First Goal</Text>
+            </TouchableOpacity>
+          </View>
+        }
         renderItem={({ item }) => {
-          const progress = item.target_amount > 0 ? item.current_amount / item.target_amount : 0;
+          const current = Number(item.currentAmount || 0);
+          const target = Number(item.targetAmount || 1);
+          const progress = target > 0 ? current / target : 0;
           const deadline = getDeadlineText(item.deadline);
+          const isCompleted = current >= target;
           
           return (
             <View style={[styles.card, { backgroundColor: colors.card }, commonShadow]}>
               <View style={styles.cardMain}>
                 <GoalProgressCircle 
                   progress={progress} 
-                  icon={item.icon || 'flag'} 
-                  color={item.color || colors.primary} 
+                  icon={item.icon || 'flag'}
+                  color={isCompleted ? colors.success : (item.color || colors.primary)}
                 />
                 <View style={styles.details}>
                   <Text style={[styles.title, { color: colors.text }]}>{item.name}</Text>
                   <Text style={[styles.amount, { color: colors.subtext }]}>
-                    {formatCurrency(item.current_amount, currencyCode)} of {formatCurrency(item.target_amount, currencyCode)}
+                    {formatCurrency(current, currency.code)} of {formatCurrency(target, currency.code)}
                   </Text>
-                  {deadline && (
+                  {isCompleted && (
+                    <Text style={[styles.completed, { color: colors.success }]}>✓ Completed!</Text>
+                  )}
+                  {!isCompleted && deadline && (
                     <Text style={[styles.deadline, { color: deadline.color }]}>{deadline.text}</Text>
                   )}
                 </View>
-                <Pressable 
-                  style={({ pressed }) => [styles.contributeBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}
-                  onPress={() => handleContribute(item.id)}
-                >
-                  <Ionicons name="add" size={24} color="white" />
-                </Pressable>
-              </View>
-              
-              <View style={[styles.progressBarBg, { backgroundColor: colors.surface }]}>
-                <View style={[styles.progressBarFill, { backgroundColor: item.color || colors.primary, width: `${Math.min(progress * 100, 100)}%` }]} />
+                {!isCompleted && (
+                  <Pressable 
+                    style={({ pressed }) => [styles.contributeBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}
+                    onPress={() => handleContribute(item)}
+                  >
+                    <Ionicons name="add" size={24} color="white" />
+                  </Pressable>
+                )}
+                {isCompleted && (
+                  <View style={[styles.completedBadge, { backgroundColor: colors.success }]}>
+                    <Ionicons name="checkmark" size={24} color="white" />
+                  </View>
+                )}
               </View>
             </View>
           );
         }}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="flag-outline" size={64} color={colors.subtext} />
-            <Text style={[styles.emptyText, { color: colors.text }]}>No savings goals yet</Text>
-            <Pressable style={[styles.ctaButton, { backgroundColor: colors.primary }]} onPress={() => router.push('/(tabs)/goals/create')}>
-              <Text style={styles.ctaText}>Set a Goal</Text>
-            </Pressable>
-          </View>
-        }
       />
-
-      <Pressable 
-        style={({ pressed }) => [styles.fab, { backgroundColor: colors.primary, transform: [{ scale: pressed ? 0.95 : 1 }] }, commonShadow]}
-        onPress={() => router.push('/(tabs)/goals/create')}
+      
+      <TouchableOpacity 
+        style={[styles.fab, { backgroundColor: colors.primary }]}
+        onPress={() => {
+          try {
+            router.push('/(tabs)/goals/create');
+          } catch (e) {
+            console.error('Navigation error:', e);
+          }
+        }}
       >
-        <Ionicons name="add" size={32} color="white" />
-      </Pressable>
+        <Ionicons name="add" size={30} color="white" />
+      </TouchableOpacity>
+
+      {/* Contribution Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                Add to {selectedGoal?.name}
+              </Text>
+              <Pressable onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.subtext} />
+              </Pressable>
+            </View>
+
+            <Text style={[styles.modalLabel, { color: colors.subtext }]}>
+              Current: {formatCurrency(selectedGoal?.currentAmount || 0, currency.code)}
+            </Text>
+            <Text style={[styles.modalLabel, { color: colors.subtext }]}>
+              Target: {formatCurrency(selectedGoal?.targetAmount || 0, currency.code)}
+            </Text>
+            <Text style={[styles.modalLabel, { color: colors.subtext }]}>
+              Remaining: {formatCurrency((selectedGoal?.targetAmount || 0) - (selectedGoal?.currentAmount || 0), currency.code)}
+            </Text>
+
+            <TextInput
+              style={[styles.amountInput, { 
+                backgroundColor: colors.background, 
+                color: colors.text,
+                borderColor: colors.border 
+              }]}
+              placeholder="Enter amount"
+              placeholderTextColor={colors.subtext}
+              keyboardType="decimal-pad"
+              value={contributeAmount}
+              onChangeText={setContributeAmount}
+              autoFocus
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.cancelButton, { borderColor: colors.border }]}
+                onPress={() => setModalVisible(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.subtext }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalButton, styles.submitButton, { backgroundColor: colors.primary }]}
+                onPress={handleSubmitContribution}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.submitButtonText}>
+                  {isSubmitting ? 'Adding...' : 'Add Contribution'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  header: { padding: 24, paddingTop: 60, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  headerTitle: { color: 'white', fontSize: 24, fontWeight: 'bold' },
   listContent: { padding: 16, paddingBottom: 100 },
-  card: { borderRadius: 16, padding: 16, marginBottom: 16 },
+  card: { padding: 16, borderRadius: 16, marginBottom: 16 },
   cardMain: { flexDirection: 'row', alignItems: 'center' },
   details: { flex: 1, marginLeft: 16 },
-  title: { fontSize: 18, fontWeight: 'bold' },
+  title: { fontSize: 16, fontWeight: 'bold' },
   amount: { fontSize: 14, marginTop: 4 },
-  deadline: { fontSize: 12, marginTop: 4, fontWeight: '600' },
-  contributeBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
-  progressBarBg: { height: 6, borderRadius: 3, marginTop: 16, overflow: 'hidden' },
-  progressBarFill: { height: '100%', borderRadius: 3 },
-  emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
-  emptyText: { fontSize: 16, marginTop: 16, marginBottom: 20 },
-  ctaButton: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24 },
-  ctaText: { color: 'white', fontWeight: 'bold' },
-  fab: { position: 'absolute', right: 24, bottom: 24, width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
+  deadline: { fontSize: 12, marginTop: 4 },
+  completed: { fontSize: 12, marginTop: 4, fontWeight: 'bold' },
+  contributeBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  completedBadge: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  emptyState: { alignItems: 'center', marginTop: 80 },
+  emptyText: { marginTop: 16, fontSize: 16 },
+  createBtn: { marginTop: 24, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  createBtnText: { color: 'white', fontWeight: 'bold' },
+  fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+  modalContent: { width: '90%', borderRadius: 16, padding: 20 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold' },
+  modalLabel: { fontSize: 14, marginBottom: 8 },
+  amountInput: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 18, marginVertical: 16, textAlign: 'center' },
+  modalButtons: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  modalButton: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+  cancelButton: { borderWidth: 1 },
+  submitButton: { marginLeft: 12 },
+  cancelButtonText: { fontWeight: '500' },
+  submitButtonText: { color: 'white', fontWeight: 'bold' },
 });
