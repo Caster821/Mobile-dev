@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getBudgetStatus, insertBudget, deleteBudget } from '../database/database';
+import { getBudgetStatus, insertBudget, deleteBudget, updateBudget } from '../database/database';
 
 export const useBudgets = (month: number, year: number) => {
   const { user } = useAuth();
@@ -37,11 +37,19 @@ export const useBudgets = (month: number, year: number) => {
     await refresh();
   };
 
+  const editBudget = async (budget: any) => {
+    if (!user) return;
+    const res = await updateBudget({ ...budget, userId: user.id });
+    await refresh();
+    return res;
+  };
+
   return {
     budgets,
     isLoading,
     refresh,
     addBudget,
     deleteBudget: removeBudget,
+    updateBudget: editBudget,
   };
 };

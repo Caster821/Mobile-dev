@@ -34,7 +34,8 @@ export default function EditTransactionScreen() {
     try {
       await updateTransaction({
         id,
-        ...data
+        userId: user?.id,
+        ...data,
       });
       router.back();
     } catch (e) {
@@ -75,11 +76,14 @@ export default function EditTransactionScreen() {
     );
   }
 
-  // Map database categories shape to what the form expects if needed
   const initialData = {
-    ...transaction,
+    _id: transaction.id,
+    amount: Number(transaction.amount),
+    type: transaction.type,
+    note: transaction.note || '',
     categoryId: transaction.category_id,
     accountId: transaction.account_id,
+    date: transaction.date ? new Date(transaction.date).getTime() : Date.now(),
   };
 
   return (

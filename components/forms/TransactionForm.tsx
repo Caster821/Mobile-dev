@@ -245,7 +245,7 @@ export const TransactionForm = ({ initialData, onSubmit, onDelete, defaultType =
           style={[styles.saveBtn, { backgroundColor: colors.primary }]} 
           onPress={handleSubmit}
         >
-          <Text style={styles.saveBtnText}>Save Transaction</Text>
+          <Text style={styles.saveBtnText}>{initialData ? 'Update Transaction' : 'Save Transaction'}</Text>
         </TouchableOpacity>
 
         {initialData && onDelete && (

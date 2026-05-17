@@ -125,7 +125,10 @@ export default function GoalsScreen() {
           const isCompleted = current >= target;
           
           return (
-            <View style={[styles.card, { backgroundColor: colors.card }, commonShadow]}>
+            <Pressable
+              style={[styles.card, { backgroundColor: colors.card }, commonShadow]}
+              onPress={() => router.push(`/(tabs)/goals/${item._id}`)}
+            >
               <View style={styles.cardMain}>
                 <GoalProgressCircle 
                   progress={progress} 
@@ -148,14 +151,20 @@ export default function GoalsScreen() {
                   {!isCompleted && (
                     <Pressable 
                       style={({ pressed }) => [styles.contributeBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 }]}
-                      onPress={() => handleContribute(item)}
+                      onPress={(e) => {
+                      e.stopPropagation();
+                      handleContribute(item);
+                    }}
                     >
                       <Ionicons name="add" size={24} color="white" />
                     </Pressable>
                   )}
                   <Pressable
                     style={({ pressed }) => [styles.deleteBtn, { opacity: pressed ? 0.8 : 1 }]}
-                    onPress={() => handleDeleteGoal(item)}
+                    onPress={(e) => {
+                      e.stopPropagation();
+                      handleDeleteGoal(item);
+                    }}
                   >
                     <Ionicons name="trash-outline" size={22} color={colors.danger} />
                   </Pressable>
@@ -166,7 +175,7 @@ export default function GoalsScreen() {
                   </View>
                 )}
               </View>
-            </View>
+            </Pressable>
           );
         }}
       />

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, Switch, TextInput, Alert
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp, useTheme } from '../../../context/AppContext';
+import { CURRENCY_CODES } from '../../../utils/currency';
 import { useAuth } from '../../../context/AuthContext';
 import { isBiometricEnabled, enableBiometricLock } from '../../../utils/secureStore';
 import { commonShadow } from '../../../utils/theme';
@@ -102,6 +103,7 @@ export default function SettingsScreen() {
             icon="person-circle"
             title="Profile"
             value={user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}
+            onPress={() => router.push('/(tabs)/settings/account')}
           />
           <SettingRow
             icon="log-out"
@@ -130,8 +132,7 @@ export default function SettingsScreen() {
             title="Currency" 
             value={currency.code} 
             onPress={() => {
-              const codes = ['USD', 'EUR', 'GBP', 'XOF', 'JPY'];
-              const next = codes[(codes.indexOf(currency.code) + 1) % codes.length];
+              const next = CURRENCY_CODES[(CURRENCY_CODES.indexOf(currency.code) + 1) % CURRENCY_CODES.length];
               setCurrency(next);
             }} 
           />

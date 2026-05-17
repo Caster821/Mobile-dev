@@ -7,6 +7,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="accounts" options={{ title: 'Manage Accounts' }} />
       <Stack.Screen name="categories" options={{ title: 'Manage Categories' }} />
       <Stack.Screen name="recurring" options={{ title: 'Recurring Transactions' }} />
+      <Stack.Screen name="account" options={{ title: 'Account' }} />
       <Stack.Screen name="backup" options={{ title: 'Backup & Restore' }} />
     </Stack>
   );

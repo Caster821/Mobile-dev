@@ -40,7 +40,14 @@ export const BudgetProgress = ({ spent, limit, categoryName, categoryIcon, categ
             {formatCurrency(spent, currencyCode)} / {formatCurrency(limit, currencyCode)}
           </Text>
           {onDelete && (
-            <TouchableOpacity onPress={onDelete} style={styles.deleteBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={(e) => {
+                e?.stopPropagation?.();
+                onDelete();
+              }}
+              style={styles.deleteBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
               <Ionicons name="trash-outline" size={18} color={colors.danger} />
             </TouchableOpacity>
           )}

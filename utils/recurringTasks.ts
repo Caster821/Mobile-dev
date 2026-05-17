@@ -1,5 +1,5 @@
 import * as Notifications from 'expo-notifications';
-import { insertTransaction } from '../database/database';
+import { insertTransaction, getRecurringRules } from '../database/database';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -11,33 +11,24 @@ Notifications.setNotificationHandler({
   }),
 });
 
-export const checkAndGenerateRecurringTransactions = async () => {
+export const checkAndGenerateRecurringTransactions = async (userId: string) => {
   try {
-    // Note: getRecurringRules needs to be implemented in database.ts
-    // For now, this function is a placeholder
-    const rules: any[] = [];
+    const rules = await getRecurringRules(userId);
     const now = Date.now();
     
     for (const rule of rules) {
       const nextDate = getNextOccurrence(rule);
       
-      if (nextDate <= now && (!rule.last_generated || nextDate > rule.last_generated)) {
+      if (nextDate <= now && (!rule.lastGenerated || nextDate > rule.lastGenerated)) {
         await insertTransaction({
-          id: Date.now().toString(),
+          userId: rule.userId,
           amount: rule.amount,
           type: rule.type,
-          category_id: rule.category_id,
-          account_id: rule.account_id,
+          categoryId: rule.categoryId,
+          accountId: rule.accountId,
           date: nextDate,
           note: `Recurring: ${rule.frequency}`,
-          receipt_uri: null,
-          recurring_id: rule.id,
-          tags: null,
-          is_deleted: 0,
-          created_at: Date.now(),
         });
-        
-        // Note: updateLastGenerated needs to be implemented in database.ts
       } else if (nextDate > now && nextDate < now + 86400000 * 3) {
         scheduleNotification(rule, nextDate);
       }
@@ -48,7 +39,7 @@ export const checkAndGenerateRecurringTransactions = async () => {
 };
 
 const getNextOccurrence = (rule: any): number => {
-  const lastGen = rule.last_generated || rule.start_date;
+  const lastGen = rule.lastGenerated || rule.startDate;
   const date = new Date(lastGen);
   
   switch (rule.frequency) {

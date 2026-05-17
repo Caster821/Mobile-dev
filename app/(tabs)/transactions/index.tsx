@@ -121,13 +121,15 @@ export default function TransactionsScreen() {
           ) || item.categories;
           return (
             <Swipeable renderRightActions={(p, d) => renderRightActions(p, d, item._id)}>
-              <TransactionCard
-                transaction={item}
-                categoryName={category?.name}
-                categoryIcon={category?.icon}
-                categoryColor={category?.color}
-                currencyCode={currency.code}
-              />
+              <Pressable onPress={() => router.push(`/transactions/${item._id}`)}>
+                <TransactionCard
+                  transaction={item}
+                  categoryName={category?.name}
+                  categoryIcon={category?.icon}
+                  categoryColor={category?.color}
+                  currencyCode={currency.code}
+                />
+              </Pressable>
             </Swipeable>
           );
         }}

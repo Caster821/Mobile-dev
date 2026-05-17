@@ -101,15 +101,17 @@ export default function BudgetsScreen() {
           const category = categories.find((c: any) => c._id === item.categoryId);
           const categoryName = category?.name || 'Unknown';
           return (
-            <BudgetProgress 
-              spent={item.spent}
-              limit={item.amount}
-              categoryName={categoryName}
-              categoryIcon={category?.icon || 'help'}
-              categoryColor={category?.color || colors.primary}
-              currencyCode={currency.code}
-              onDelete={item._id ? () => handleDeleteBudget(item._id, categoryName) : undefined}
-            />
+            <Pressable onPress={() => item._id && router.push(`/(tabs)/budgets/edit?id=${item._id}&month=${month}&year=${year}`)}>
+              <BudgetProgress 
+                spent={item.spent}
+                limit={item.amount}
+                categoryName={categoryName}
+                categoryIcon={category?.icon || 'help'}
+                categoryColor={category?.color || colors.primary}
+                currencyCode={currency.code}
+                onDelete={item._id ? () => handleDeleteBudget(item._id, categoryName) : undefined}
+              />
+            </Pressable>
           );
         }}
         ListEmptyComponent={

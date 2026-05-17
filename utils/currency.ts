@@ -10,20 +10,18 @@ export const CURRENCIES: Record<string, CurrencyConfig> = {
   EUR: { code: 'EUR', symbol: '€', decimals: 2 },
   GBP: { code: 'GBP', symbol: '£', decimals: 2 },
   XOF: { code: 'XOF', symbol: 'FCFA', decimals: 0 },
+  JPY: { code: 'JPY', symbol: '¥', decimals: 0 },
 };
+
+export const CURRENCY_CODES = Object.keys(CURRENCIES);
 
 export const formatCurrency = (amount: number, currencyCode: string = 'XAF') => {
   const config = CURRENCIES[currencyCode] || CURRENCIES.XAF;
-  
-  // Use a safe default locale
-  const locale = 'en-US';
-  
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: config.code,
+  const formatted = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: config.decimals,
     maximumFractionDigits: config.decimals,
-  }).format(amount).replace(config.code, config.symbol);
+  }).format(amount);
+  return `${config.symbol} ${formatted}`;
 };
 
 export const getCurrencySymbol = (code: string) => {

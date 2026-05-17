@@ -269,11 +269,16 @@ export const updateTransaction = async (t: any) => {
     updated_at: new Date().toISOString()
   };
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('transactions')
     .update(payload)
-    .eq('id', t.id)
-    .select();
+    .eq('id', t.id || t._id);
+
+  if (t.userId || t.user_id) {
+    query = query.eq('user_id', t.userId || t.user_id);
+  }
+
+  const { data, error } = await query.select();
 
   if (error) throw error;
   return mapTransactionFromDb(data[0]);
@@ -341,6 +346,34 @@ export const deleteBudget = async (id: string, userId: string) => {
   if (error) throw error;
 };
 
+export const getBudget = async (id: string, userId: string): Promise<Budget> => {
+  const { data, error } = await supabase
+    .from('budgets')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .single();
+  if (error) throw error;
+  return mapBudgetFromDb(data);
+};
+
+export const updateBudget = async (b: any) => {
+  const payload = {
+    category_id: b.categoryId || b.category_id,
+    amount: b.amount,
+    month: b.month,
+    year: b.year,
+  };
+  const { data, error } = await supabase
+    .from('budgets')
+    .update(payload)
+    .eq('id', b._id || b.id)
+    .eq('user_id', b.userId || b.user_id)
+    .select();
+  if (error) throw error;
+  return mapBudgetFromDb(data[0]);
+};
+
 // SAVINGS GOALS CRUD
 const mapGoalFromDb = (data: any): SavingsGoal => ({
   _id: data.id,
@@ -392,6 +425,41 @@ export const insertGoal = async (g: any) => {
   return mapGoalFromDb(data[0]);
 };
 
+export const getGoal = async (id: string, userId: string): Promise<SavingsGoal> => {
+  const { data, error } = await supabase
+    .from('savings_goals')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', userId)
+    .single();
+  if (error) throw error;
+  return mapGoalFromDb(data);
+};
+
+export const updateGoal = async (g: any) => {
+  const payload: Record<string, unknown> = {
+    name: g.name,
+    target_amount: g.targetAmount ?? g.target_amount,
+    updated_at: new Date().toISOString(),
+  };
+  if (g.currentAmount !== undefined || g.current_amount !== undefined) {
+    payload.current_amount = g.currentAmount ?? g.current_amount;
+  }
+  if (g.deadline !== undefined) {
+    payload.deadline = g.deadline
+      ? new Date(g.deadline).toISOString().split('T')[0]
+      : null;
+  }
+  const { data, error } = await supabase
+    .from('savings_goals')
+    .update(payload)
+    .eq('id', g._id || g.id)
+    .eq('user_id', g.userId || g.user_id)
+    .select();
+  if (error) throw error;
+  return mapGoalFromDb(data[0]);
+};
+
 export const contributeToGoal = async (goal: SavingsGoal, amount: number) => {
   const newAmount = (goal.currentAmount || 0) + amount;
   const { data, error } = await supabase
@@ -401,6 +469,83 @@ export const contributeToGoal = async (goal: SavingsGoal, amount: number) => {
     .select();
   if (error) throw error;
   return mapGoalFromDb(data[0]);
+};
+
+// RECURRING RULES CRUD
+const mapRecurringFromDb = (data: any): RecurringRule => ({
+  _id: data.id,
+  userId: data.user_id,
+  type: data.type,
+  amount: data.amount,
+  categoryId: data.category_id,
+  accountId: data.account_id,
+  frequency: data.frequency,
+  interval: data.interval || 1,
+  startDate: data.start_date ? new Date(data.start_date).getTime() : Date.now(),
+  endDate: data.end_date ? new Date(data.end_date).getTime() : undefined,
+  lastGenerated: data.last_generated ? new Date(data.last_generated).getTime() : undefined,
+});
+
+export const getRecurringRules = async (userId: string): Promise<RecurringRule[]> => {
+  const { data, error } = await supabase
+    .from('recurring_rules')
+    .select('*')
+    .eq('user_id', userId)
+    .order('start_date', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(mapRecurringFromDb);
+};
+
+export const insertRecurringRule = async (rule: any) => {
+  const payload = {
+    user_id: rule.userId || rule.user_id,
+    type: rule.type,
+    amount: rule.amount,
+    category_id: rule.categoryId || rule.category_id,
+    account_id: rule.accountId || rule.account_id,
+    frequency: rule.frequency,
+    interval: rule.interval || 1,
+    start_date: rule.startDate
+      ? new Date(rule.startDate).toISOString()
+      : new Date().toISOString(),
+    end_date: rule.endDate ? new Date(rule.endDate).toISOString() : null,
+  };
+  const { data, error } = await supabase
+    .from('recurring_rules')
+    .insert([payload])
+    .select();
+  if (error) throw error;
+  return mapRecurringFromDb(data[0]);
+};
+
+export const deleteRecurringRule = async (id: string, userId: string) => {
+  const { error } = await supabase
+    .from('recurring_rules')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId);
+  if (error) throw error;
+};
+
+export const updateRecurringRule = async (rule: any) => {
+  const payload = {
+    type: rule.type,
+    amount: rule.amount,
+    category_id: rule.categoryId || rule.category_id,
+    account_id: rule.accountId || rule.account_id,
+    frequency: rule.frequency,
+    interval: rule.interval || 1,
+    start_date: rule.startDate ? new Date(rule.startDate).toISOString() : undefined,
+    end_date: rule.endDate ? new Date(rule.endDate).toISOString() : null,
+  };
+  const { data, error } = await supabase
+    .from('recurring_rules')
+    .update(payload)
+    .eq('id', rule._id || rule.id)
+    .eq('user_id', rule.userId || rule.user_id)
+    .select();
+  if (error) throw error;
+  return mapRecurringFromDb(data[0]);
 };
 
 // BUSINESS CALCULATIONS & STATS
