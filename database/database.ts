@@ -1,10 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { Transaction, Category, Account, Budget, SavingsGoal, RecurringRule } from '../types';
 
-// Helper to handle safe values
 const safe = (v: any) => v === undefined || v === null ? null : v;
 
-// Seed Default Categories in Supabase (if they don't already exist for user)
 export const seedDefaultCategories = async (userId: string) => {
   try {
     const { data: existing, error: checkError } = await supabase
@@ -14,10 +12,10 @@ export const seedDefaultCategories = async (userId: string) => {
       .limit(1);
 
     if (checkError) throw checkError;
-    if (existing && existing.length > 0) return; // Already seeded
+    if (existing && existing.length > 0) return;
 
     const defaults = [
-      // Expenses
+
       { name: 'Food & Dining', icon: 'fast-food', color: '#FF6B6B', type: 'expense' },
       { name: 'Transportation', icon: 'car', color: '#4ECDC4', type: 'expense' },
       { name: 'Housing', icon: 'home', color: '#45B7D1', type: 'expense' },
@@ -33,7 +31,7 @@ export const seedDefaultCategories = async (userId: string) => {
       { name: 'Insurance', icon: 'shield-checkmark', color: '#B8E1FF', type: 'expense' },
       { name: 'Taxes', icon: 'receipt', color: '#E2E8F0', type: 'expense' },
       { name: 'Miscellaneous', icon: 'pin', color: '#A0AEC0', type: 'expense' },
-      // Income
+
       { name: 'Salary', icon: 'cash', color: '#48BB78', type: 'income' },
       { name: 'Freelance', icon: 'desktop', color: '#ED8936', type: 'income' },
       { name: 'Business', icon: 'business', color: '#9F7AEA', type: 'income' },
@@ -61,7 +59,6 @@ export const seedDefaultCategories = async (userId: string) => {
   }
 };
 
-// Seed Default Accounts in Supabase (if they don't already exist for user)
 export const seedDefaultAccounts = async (userId: string) => {
   try {
     const { data: existing, error: checkError } = await supabase
@@ -71,7 +68,7 @@ export const seedDefaultAccounts = async (userId: string) => {
       .limit(1);
 
     if (checkError) throw checkError;
-    if (existing && existing.length > 0) return; // Already seeded
+    if (existing && existing.length > 0) return;
 
     const defaults = [
       { name: 'Cash', type: 'cash', startingBalance: 0, currency: 'XAF' },
@@ -97,7 +94,6 @@ export const seedDefaultAccounts = async (userId: string) => {
   }
 };
 
-// Add this function to your database.ts file with the other CRUD operations
 export const updateGoalProgress = async (id: string, current_amount: number, userId: string) => {
   const { data, error } = await supabase
     .from('savings_goals')
@@ -110,7 +106,6 @@ export const updateGoalProgress = async (id: string, current_amount: number, use
   return data[0];
 };
 
-// CATEGORIES CRUD
 const mapCategoryFromDb = (data: any): Category => ({
   _id: data.id,
   userId: data.user_id,
@@ -158,7 +153,6 @@ export const insertCategory = async (category: any) => {
   return mapCategoryFromDb(data[0]);
 };
 
-// ACCOUNTS CRUD
 const mapAccountFromDb = (data: any): Account => ({
   _id: data.id,
   userId: data.user_id,
@@ -193,7 +187,6 @@ export const insertAccount = async (account: Partial<Account>) => {
   return mapAccountFromDb(data[0]);
 };
 
-// TRANSACTIONS CRUD
 const mapTransactionFromDb = (data: any): Transaction => ({
   _id: data.id,
   userId: data.user_id,
@@ -295,8 +288,6 @@ export const deleteTransaction = async (id: string, userId: string) => {
   return data[0];
 };
 
-// BUDGETS CRUD
-// BUDGETS CRUD
 const mapBudgetFromDb = (data: any): Budget => ({
   _id: data.id,
   userId: data.user_id,
@@ -374,7 +365,6 @@ export const updateBudget = async (b: any) => {
   return mapBudgetFromDb(data[0]);
 };
 
-// SAVINGS GOALS CRUD
 const mapGoalFromDb = (data: any): SavingsGoal => ({
   _id: data.id,
   userId: data.user_id,
@@ -395,7 +385,6 @@ export const getGoals = async (userId: string): Promise<SavingsGoal[]> => {
   if (error) throw error;
   return (data || []).map(mapGoalFromDb);
 };
-
 
 export const deleteGoal = async (id: string, userId: string) => {
   const { error } = await supabase
@@ -471,7 +460,6 @@ export const contributeToGoal = async (goal: SavingsGoal, amount: number) => {
   return mapGoalFromDb(data[0]);
 };
 
-// RECURRING RULES CRUD
 const mapRecurringFromDb = (data: any): RecurringRule => ({
   _id: data.id,
   userId: data.user_id,
@@ -548,9 +536,8 @@ export const updateRecurringRule = async (rule: any) => {
   return mapRecurringFromDb(data[0]);
 };
 
-// BUSINESS CALCULATIONS & STATS
 export const getNetWorth = async (userId: string): Promise<number> => {
-  // Sum starting balance from accounts
+
   const { data: accounts, error: accError } = await supabase
     .from('accounts')
     .select('starting_balance')
@@ -558,7 +545,6 @@ export const getNetWorth = async (userId: string): Promise<number> => {
 
   if (accError) throw accError;
 
-  // Sum transaction flows
   const { data: transactions, error: txError } = await supabase
     .from('transactions')
     .select('amount, type')
@@ -613,7 +599,6 @@ export const getBudgetStatus = async (userId: string, month: number, year: numbe
     .lte('date', endOfMonth);
 
   if (error) throw error;
-
 
   const statusList = budgets.map(b => {
     const spent = transactions

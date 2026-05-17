@@ -8,7 +8,6 @@ interface Props {
   size?: number;
 }
 
-// Check if icon is an emoji (contains non-ASCII characters)
 const isEmoji = (icon: string) => {
   if (!icon) return false;
   const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/u;
@@ -16,7 +15,7 @@ const isEmoji = (icon: string) => {
 };
 
 export const CategoryIcon = ({ icon, color, size = 24 }: Props) => {
-  // If icon is an emoji, display it as text instead of trying to use Ionicons
+
   if (isEmoji(icon)) {
     return (
       <View style={[styles.container, { backgroundColor: color + '20', width: size * 2, height: size * 2, borderRadius: size }]}>
@@ -25,7 +24,6 @@ export const CategoryIcon = ({ icon, color, size = 24 }: Props) => {
     );
   }
 
-  // Otherwise, try to use Ionicons with a fallback
   return (
     <View style={[styles.container, { backgroundColor: color + '20', width: size * 2, height: size * 2, borderRadius: size }]}>
       <Ionicons name={icon as any} size={size} color={color} />

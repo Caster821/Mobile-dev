@@ -28,7 +28,7 @@ export default function RegisterScreen() {
       if (error) {
         Alert.alert("Registration Failed", error.message || "Please try again");
       } else {
-        // Auto-login after successful registration
+
         const { error: loginError } = await signIn(email, password);
         if (loginError) {
           Alert.alert("Registration Successful", "Account created successfully. Please login.", [

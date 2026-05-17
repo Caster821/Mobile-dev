@@ -12,7 +12,6 @@ export default function AccountsScreen() {
   const { currency } = useApp();
   const colors = useTheme();
 
-  // Create Form State
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [type, setType] = useState<'cash'|'checking'|'savings'|'credit'>('checking');

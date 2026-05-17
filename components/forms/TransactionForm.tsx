@@ -27,7 +27,7 @@ let DateTimePicker: any;
 try {
   DateTimePicker = require('@react-native-community/datetimepicker').default;
 } catch (e) {
-  // Fallback handled in render
+
 }
 
 interface Props {

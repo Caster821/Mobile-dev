@@ -22,7 +22,7 @@ export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
     
     Animated.sequence([
       Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.delay(act ? 5000 : 2000), // Show for 5s if there's an action
+      Animated.delay(act ? 5000 : 2000),
       Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
     ]).start();
   }, [opacity]);

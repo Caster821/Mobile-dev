@@ -40,11 +40,9 @@ export default function SettingsScreen() {
         csv += `${t.id},${new Date(t.date).toISOString()},${t.type},${t.amount},${t.categoryName || ''},"${t.note || ''}"\n`;
       });
 
-      // Placeholder for actual file sharing since we need a file path
-      // In a real device this would use FileSystem
       Alert.alert("Export", "CSV Export generated successfully!");
       if (await Sharing.isAvailableAsync()) {
-        // Here you would share the file
+
       }
     } catch (e) {
       console.error(e);

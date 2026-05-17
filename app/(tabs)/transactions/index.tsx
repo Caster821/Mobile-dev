@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, SectionList, Pressable, Animated, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTransactions } from '../../../hooks/useTransactions';
 import { router, useFocusEffect } from 'expo-router';
+import { navigateToEditTransaction } from '../../../utils/navigation';
 import { useCategories } from '../../../hooks/useCategories';
 import { Ionicons } from '@expo/vector-icons';
 import { TransactionCard } from '../../../components/ui/TransactionCard';
@@ -93,7 +94,7 @@ export default function TransactionsScreen() {
         <Text style={styles.headerTitle}>Transactions</Text>
         <TouchableOpacity
           style={styles.addBtn}
-          onPress={() => router.push('/transactions/add')}
+          onPress={() => router.push('/(tabs)/transactions/add')}
         >
           <Ionicons name="add" size={20} color="white" />
           <Text style={styles.addBtnText}>Add Transaction</Text>
@@ -121,7 +122,7 @@ export default function TransactionsScreen() {
           ) || item.categories;
           return (
             <Swipeable renderRightActions={(p, d) => renderRightActions(p, d, item._id)}>
-              <Pressable onPress={() => router.push(`/transactions/${item._id}`)}>
+              <Pressable onPress={() => navigateToEditTransaction(item._id)}>
                 <TransactionCard
                   transaction={item}
                   categoryName={category?.name}

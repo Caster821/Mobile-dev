@@ -4,7 +4,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { useApp, useTheme } from '../../../context/AppContext';
 import { getTransactions, getCategories } from '../../../database/database';
 import { formatCurrency } from '../../../utils/currency';
-// @ts-ignore - react-native-svg-charts lacks type definitions
+
 import { PieChart, LineChart, Grid, YAxis, XAxis } from 'react-native-svg-charts';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,7 +39,6 @@ export default function ReportsScreen() {
     }, [loadData])
   );
 
-  // Spending by Category
   const spendingByCat = categories.map(cat => {
     const total = transactions
       .filter(tx => tx.categoryId === cat._id && tx.type === 'expense')
@@ -53,7 +52,6 @@ export default function ReportsScreen() {
     key: `pie-${index}`,
   }));
 
-  // Monthly Trend (last 6 months)
   const now = new Date();
   const monthlyData: number[] = [];
   const months: string[] = [];

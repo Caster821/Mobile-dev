@@ -16,8 +16,7 @@ export const useTransactions = () => {
     try {
       const data = await getTransactions(user.id);
       setRawTransactions(data);
-      
-      // Date grouping logic
+
       const now = new Date();
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
       const yesterday = today - 86400000;

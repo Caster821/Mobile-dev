@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, Alert, ActivityIndicator, 
 import { useGoals } from '../../../hooks/useGoals';
 import { useApp, useTheme } from '../../../context/AppContext';
 import { router, useFocusEffect } from 'expo-router';
+import { navigateToEditGoal } from '../../../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { GoalProgressCircle } from '../../../components/ui/GoalProgressCircle';
 import { commonShadow } from '../../../utils/theme';
@@ -127,7 +128,7 @@ export default function GoalsScreen() {
           return (
             <Pressable
               style={[styles.card, { backgroundColor: colors.card }, commonShadow]}
-              onPress={() => router.push(`/(tabs)/goals/${item._id}`)}
+              onPress={() => navigateToEditGoal(item._id)}
             >
               <View style={styles.cardMain}>
                 <GoalProgressCircle 
@@ -187,7 +188,7 @@ export default function GoalsScreen() {
               <Text style={styles.createBtnText}>Add a Goal</Text>
             </TouchableOpacity>
 
-      {/* Contribution Modal */}
+      {}
       <Modal
         animationType="slide"
         transparent={true}

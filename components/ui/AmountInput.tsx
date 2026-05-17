@@ -12,7 +12,6 @@ interface Props {
 export const AmountInput = ({ value, onChangeText, currencySymbol, isExpense = true }: Props) => {
   const colors = useTheme();
 
-  // Simple formatting for display (not for the input itself to avoid cursor jumps)
   const formattedValue = value ? Number(value).toLocaleString('en-US') : '0';
 
   return (
@@ -25,7 +24,7 @@ export const AmountInput = ({ value, onChangeText, currencySymbol, isExpense = t
           style={[styles.input, { color: isExpense ? colors.danger : colors.success }]}
           value={value}
           onChangeText={(text) => {
-            // Only allow numbers and one decimal point
+
             const cleaned = text.replace(/[^0-9.]/g, '');
             const parts = cleaned.split('.');
             if (parts.length > 2) return;

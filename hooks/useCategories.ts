@@ -12,7 +12,7 @@ export const useCategories = (type?: 'expense' | 'income') => {
     if (!user) return;
     setIsLoading(true);
     try {
-      // Ensure defaults are seeded first time
+
       await seedDefaultCategories(user.id);
       const data = await getCategories(user.id, type);
       setCategories(data);

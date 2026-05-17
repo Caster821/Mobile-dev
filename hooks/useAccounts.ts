@@ -12,7 +12,7 @@ export const useAccounts = () => {
     if (!user) return;
     setIsLoading(true);
     try {
-      // Ensure defaults are seeded first time
+
       await seedDefaultAccounts(user.id);
       const data = await getAccounts(user.id);
       setAccounts(data);

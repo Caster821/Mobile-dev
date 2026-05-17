@@ -5,7 +5,7 @@ import { useTheme } from '../../context/AppContext';
 import { CategoryIcon } from './CategoryIcon';
 
 interface Props {
-  progress: number; // 0 to 1
+  progress: number;
   icon: string;
   color: string;
   size?: number;

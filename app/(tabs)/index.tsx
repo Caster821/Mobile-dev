@@ -9,7 +9,7 @@ import { formatCurrency } from '../../utils/currency';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AnimatedFAB } from '../../components/ui/AnimatedFAB';
+import { navigateToEditTransaction } from '../../utils/navigation';
 import { router } from 'expo-router';
 import Svg, { Circle } from 'react-native-svg';
 
@@ -67,7 +67,7 @@ export default function DashboardScreen() {
             <Text style={styles.welcomeText}>Hello,</Text>
             <Text style={styles.userName}>{user?.user_metadata?.name || user?.email?.split('@')[0] || 'User'}</Text>
           </View>
-          <TouchableOpacity onPress={() => router.push('/settings')} style={styles.profileBtn}>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/settings')} style={styles.profileBtn}>
             <Ionicons name="person-circle" size={40} color="white" />
           </TouchableOpacity>
         </View>
@@ -186,14 +186,14 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Transactions</Text>
-            <TouchableOpacity onPress={() => router.push('/transactions')}>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/transactions')}>
               <Text style={{ color: colors.primary }}>See All</Text>
             </TouchableOpacity>
           </View>
           {rawTransactions.slice(0, 5).map((tx) => (
             <TouchableOpacity 
               key={tx._id} 
-              onPress={() => router.push(`/transactions/${tx._id}`)}
+              onPress={() => navigateToEditTransaction(tx._id)}
               style={[styles.txItem, { backgroundColor: colors.card }]}
             >
               <View style={[styles.txIcon, { backgroundColor: tx.categories?.color || colors.surface }]}>

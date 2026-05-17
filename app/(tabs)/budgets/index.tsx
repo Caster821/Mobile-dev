@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, Pressable, ActivityIndicator, Touchab
 import { useBudgets } from '../../../hooks/useBudgets';
 import { useCategories } from '../../../hooks/useCategories';
 import { router, useFocusEffect } from 'expo-router';
+import { navigateToEditBudget, navigateToCreateBudget } from '../../../utils/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { BudgetProgress } from '../../../components/ui/BudgetProgress';
 import { useApp, useTheme } from '../../../context/AppContext';
@@ -101,7 +102,7 @@ export default function BudgetsScreen() {
           const category = categories.find((c: any) => c._id === item.categoryId);
           const categoryName = category?.name || 'Unknown';
           return (
-            <Pressable onPress={() => item._id && router.push(`/(tabs)/budgets/edit?id=${item._id}&month=${month}&year=${year}`)}>
+            <Pressable onPress={() => item._id && navigateToEditBudget(item._id, month, year)}>
               <BudgetProgress 
                 spent={item.spent}
                 limit={item.amount}
@@ -124,7 +125,7 @@ export default function BudgetsScreen() {
       
       <TouchableOpacity 
               style={[styles.createBtn, { backgroundColor: colors.primary }]}
-              onPress={() => router.push(`/(tabs)/budgets/create?month=${month}&year=${year}`)}
+              onPress={() => navigateToCreateBudget(month, year)}
             >
               <Text style={styles.createBtnText}>Add Budget</Text>
             </TouchableOpacity>
