@@ -1,14 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useAuth } from '../../../context/AuthContext';
-import { useApp, useTheme } from '../../../context/AppContext';
+import { useApp } from '../../../context/AppContext';
 import { getTransactions, getCategories } from '../../../database/database';
 import { formatCurrency } from '../../../utils/currency';
 
-import { PieChart, LineChart, Grid, YAxis, XAxis } from 'react-native-gifted-charts';
+import { PieChart, LineChart } from 'react-native-gifted-charts';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { GlassCard } from '../../../components/ui/GlassCard';
 
 const { width } = Dimensions.get('window');
 
@@ -46,10 +45,10 @@ export default function ReportsScreen() {
     return { ...cat, total };
   }).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
 
-  const pieData = spendingByCat.map((item, index) => ({
+  const pieData = spendingByCat.map((item) => ({
     value: item.total,
-    svg: { fill: item.color },
-    key: `pie-${index}`,
+    color: item.color,
+    name: item.name,
   }));
 
   const now = new Date();
@@ -73,108 +72,223 @@ export default function ReportsScreen() {
     months.push(monthName);
   }
 
+  const totalSpending = spendingByCat.reduce((s, c) => s + c.total, 0);
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+
+      {/* Header — matches green header from screenshots */}
       <View style={[styles.header, { backgroundColor: colors.primary }]}>
-        <Text style={styles.headerTitle}>Spending Reports</Text>
+        <Text style={styles.headerTitle}>Reports</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <GlassCard style={styles.summaryCard}>
-          <Text style={[styles.cardTitle, { color: colors.text }]}>Total Spending</Text>
-          <Text style={[styles.totalAmount, { color: colors.danger }]}>
-            {formatCurrency(spendingByCat.reduce((s, c) => s + c.total, 0), currency.code)}
-          </Text>
-        </GlassCard>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Spending by Category</Text>
-          <View style={styles.chartRow}>
-            <PieChart style={{ height: 200, flex: 1 }} data={pieData} />
-            <View style={styles.legend}>
-              {spendingByCat.slice(0, 5).map((cat, i) => (
-                <View key={i} style={styles.legendItem}>
-                  <View style={[styles.dot, { backgroundColor: cat.color }]} />
-                  <Text style={[styles.legendText, { color: colors.subtext }]} numberOfLines={1}>
-                    {cat.name}
+        {/* Total Spending summary card */}
+        <View style={[styles.card, styles.summaryCard, { backgroundColor: colors.primary + '22' }]}>
+          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>Total Spending</Text>
+          <Text style={[styles.summaryAmount, { color: colors.danger }]}>
+            {formatCurrency(totalSpending, currency.code)}
+          </Text>
+        </View>
+
+        {/* Spending by Category */}
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Spending by Category</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          {spendingByCat.length > 0 ? (
+            <View style={styles.pieRow}>
+              <PieChart
+                data={pieData}
+                radius={80}
+                textColor={colors.text}
+                textSize={10}
+              />
+              <View style={styles.legend}>
+                {spendingByCat.slice(0, 5).map((cat, i) => (
+                  <View key={i} style={styles.legendItem}>
+                    <View style={[styles.dot, { backgroundColor: cat.color }]} />
+                    <Text style={[styles.legendText, { color: colors.subtext }]} numberOfLines={1}>
+                      {cat.name}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : (
+            <Text style={[styles.emptyText, { color: colors.subtext }]}>No spending data available</Text>
+          )}
+        </View>
+
+        {/* Monthly Trend */}
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Monthly Trend</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          {monthlyData.some(val => val > 0) ? (
+            <LineChart
+              data={monthlyData.map((value, index) => ({ value, label: months[index] }))}
+              height={180}
+              width={width - 80}
+              color={colors.primary}
+              thickness={3}
+              backgroundColor={colors.surface}
+              showVerticalLines={false}
+              isAnimated={true}
+              hideDataPoints={false}
+              dataPointsColor={colors.primary}
+              xAxisLabelTextStyle={{ color: colors.subtext, fontSize: 10 }}
+              yAxisTextStyle={{ color: colors.subtext, fontSize: 10 }}
+              yAxisColor="transparent"
+              xAxisColor={colors.subtext + '44'}
+              noOfSections={4}
+            />
+          ) : (
+            <Text style={[styles.emptyText, { color: colors.subtext }]}>No spending data for the past 6 months</Text>
+          )}
+        </View>
+
+        {/* Top Categories */}
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Categories</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface }]}>
+          {spendingByCat.length > 0 ? (
+            spendingByCat.slice(0, 3).map((cat, index) => (
+              <View
+                key={cat._id}
+                style={[
+                  styles.catRow,
+                  index < 2 && { borderBottomWidth: 1, borderBottomColor: colors.background }
+                ]}
+              >
+                <View style={[styles.iconBox, { backgroundColor: cat.color + '20' }]}>
+                  <Ionicons name={cat.icon as any} size={22} color={cat.color} />
+                </View>
+                <View style={styles.catInfo}>
+                  <Text style={[styles.catName, { color: colors.text }]}>{cat.name}</Text>
+                  <Text style={[styles.catRank, { color: colors.subtext }]}>
+                    #{index + 1} Top Expense
                   </Text>
                 </View>
-              ))}
-            </View>
-          </View>
+                <Text style={[styles.catAmount, { color: colors.danger }]}>
+                  -{formatCurrency(cat.total, currency.code)}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text style={[styles.emptyText, { color: colors.subtext }]}>No category data available</Text>
+          )}
         </View>
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Monthly Trend</Text>
-          <View style={{ height: 200, flexDirection: 'row', padding: 20 }}>
-            <YAxis
-              data={monthlyData}
-              contentInset={{ top: 20, bottom: 20 }}
-              svg={{ fill: colors.subtext, fontSize: 10 }}
-              numberOfTicks={5}
-                formatLabel={(value: number) => `${value / 1000}k`}
-            />
-            <View style={{ flex: 1, marginLeft: 10 }}>
-              <LineChart
-                style={{ flex: 1 }}
-                data={monthlyData}
-                svg={{ stroke: colors.primary, strokeWidth: 3 }}
-                contentInset={{ top: 20, bottom: 20 }}
-              >
-                <Grid />
-              </LineChart>
-              <XAxis
-                style={{ marginHorizontal: -10 }}
-                data={monthlyData}
-                formatLabel={(value: number, index: number) => months[index]}
-                contentInset={{ left: 10, right: 10 }}
-                svg={{ fontSize: 10, fill: colors.subtext }}
-              />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Categories</Text>
-          {spendingByCat.slice(0, 3).map((cat, index) => (
-            <View key={cat._id} style={[styles.topCatItem, { backgroundColor: colors.surface }]}>
-              <View style={[styles.iconBox, { backgroundColor: cat.color + '20' }]}>
-                <Ionicons name={cat.icon as any} size={24} color={cat.color} />
-              </View>
-              <View style={styles.catInfo}>
-                <Text style={[styles.catName, { color: colors.text }]}>{cat.name}</Text>
-                <Text style={[styles.catCount, { color: colors.subtext }]}>{index + 1}st Rank</Text>
-              </View>
-              <Text style={[styles.catAmount, { color: colors.text }]}>
-                {formatCurrency(cat.total, currency.code)}
-              </Text>
-            </View>
-          ))}
-        </View>
+        <View style={{ height: 30 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { padding: 16, paddingTop: 50, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
-  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
-  content: { flex: 1, padding: 16 },
-  summaryCard: { padding: 16, alignItems: 'center', marginBottom: 20 },
-  cardTitle: { fontSize: 14, marginBottom: 6 },
-  totalAmount: { fontSize: 28, fontWeight: 'bold' },
-  section: { marginBottom: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
-  chartRow: { flexDirection: 'row', alignItems: 'center' },
-  legend: { flex: 1, marginLeft: 16 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-  legendText: { fontSize: 11 },
-  topCatItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 10 },
-  iconBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  catInfo: { flex: 1 },
-  catName: { fontSize: 14, fontWeight: 'bold' },
-  catCount: { fontSize: 11 },
-  catAmount: { fontSize: 14, fontWeight: 'bold' },
+  container: {
+    flex: 1,
+  },
+  header: {
+    paddingTop: 52,
+    paddingBottom: 18,
+    paddingHorizontal: 20,
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  summaryCard: {
+    marginBottom: 20,
+    alignItems: 'center',
+    paddingVertical: 20,
+  },
+  summaryLabel: {
+    fontSize: 13,
+    marginBottom: 4,
+  },
+  summaryAmount: {
+    fontSize: 30,
+    fontWeight: 'bold',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  card: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  pieRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  legend: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  legendText: {
+    fontSize: 12,
+  },
+  catRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  iconBox: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  catInfo: {
+    flex: 1,
+  },
+  catName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  catRank: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  catAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    fontSize: 13,
+    textAlign: 'center',
+    paddingVertical: 20,
+  },
 });
