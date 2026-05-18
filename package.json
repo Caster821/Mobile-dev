@@ -1,4 +1,7 @@
 {
+  "engines": {
+  "node": ">=20"
+},
   "name": "pennywise",
   "main": "expo-router/entry",
   "version": "1.0.0",
